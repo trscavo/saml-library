@@ -1,7 +1,7 @@
 #!/bin/bash
 
 #######################################################################
-# Copyright 2017 Tom Scavo
+# Copyright 2017--2018 Tom Scavo
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -28,8 +28,8 @@
 #
 # Example: Install in $HOME
 #
-#   $ export BIN_DIR=$HOME/bin
-#   $ export LIB_DIR=$HOME/lib
+#   $ export BIN_DIR=$HOME/dev/bin
+#   $ export LIB_DIR=$HOME/dev/lib
 #   $ install.sh $BIN_DIR $LIB_DIR
 #
 ################################################################
