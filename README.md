@@ -6,12 +6,12 @@ Useful scripts for SAML developers
 
 The SAML Library includes the following features:
 
-* implements an HTTP conditional request (RFC 7232) client for SAML metadata
+* implements an HTTP conditional request ([RFC 7232](https://tools.ietf.org/html/rfc7232)) client for SAML metadata
 * implements various filters that can be used to build a SAML metadata pipeline
-* implements a client for the Metadata Query Protocol
+* implements a client for the [Metadata Query Protocol](https://github.com/iay/md-query)
 * implements an HTTP extension to the bash xsltproc command-line tool
 * provides numerous XSLT scripts for SAML metadata
-* provides tools that support the Shibboleth LocalDynamicMetadataProvider
+* provides tools that support the Shibboleth [LocalDynamicMetadataProvider](https://wiki.shibboleth.net/confluence/x/hYGNAQ)
 * monitors the life cycle of a SAML metadata resource
 
 ## Installation
@@ -46,7 +46,7 @@ The `BIN_DIR` and `LIB_DIR` directories will contain files from both libraries.
 
 ## Environment
 
-The SAML Library requires the same environment variables as the [Bash Library](https://github.com/trscavo/bash-library). There are no differences.
+The SAML Library requires the same environment variables as the [Bash Library](https://github.com/trscavo/bash-library).
 
 ## Compatibility
 
