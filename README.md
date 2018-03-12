@@ -4,7 +4,7 @@ Useful scripts for SAML developers
 
 ## Overview
 
-The SAML Library (which extends the Bash Library) includes the following features:
+The SAML Library includes the following features:
 
 * implements an HTTP conditional request (RFC 7232) client for SAML metadata
 * implements various filters that can be used to build a SAML metadata pipeline
@@ -16,7 +16,7 @@ The SAML Library (which extends the Bash Library) includes the following feature
 
 ## Installation
 
-Install the Bash Library before installing the scripts in this repository.
+Install the [Bash Library](https://github.com/trscavo/bash-library) before installing the scripts in this repository.
 
 Download the SAML Library source, change directory to the source directory, and install the source on top of the Bash Library as follows:
 
@@ -46,7 +46,7 @@ The `BIN_DIR` and `LIB_DIR` directories will contain files from both libraries.
 
 ## Environment
 
-The SAML Library requires the same environment variables as the Bash Library. There are no differences.
+The SAML Library requires the same environment variables as the [Bash Library](https://github.com/trscavo/bash-library). There are no differences.
 
 ## Compatibility
 
@@ -54,4 +54,4 @@ The shell scripts are compatible with both GNU/Linux and Mac OS. The XSLT script
 
 ## Dependencies
 
-The SAML Library depends on the Bash Library.
+The SAML Library depends on the [Bash Library](https://github.com/trscavo/bash-library).
