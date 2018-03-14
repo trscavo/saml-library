@@ -36,9 +36,14 @@ display_help () {
 	
 	Options:
 	   -h      Display this help message
+	   -D      Enable DEBUG logging
+	   -W      Enable WARN logging
 	   -L      Maximum length of the validity interval
 
 	Option -h is mutually exclusive of all other options.
+	
+	Options -D or -W enable DEBUG or WARN logging, respectively.
+	This temporarily overrides the LOG_LEVEL environment variable.
 	
 	The -L option specifies the maximum length of the validity 
 	interval as an ISO 8601 duration. The default value of this 
@@ -153,7 +158,7 @@ done
 #######################################################################
 
 # option -e is experimental and therefore unadvertised
-usage_string="Usage: $script_name [-h] [-DW] [-L DURATION] TARGET_DIR"
+usage_string="Usage: $script_name [-hDW] [-L DURATION] TARGET_DIR"
 
 help_mode=false; percent_encoding_mode=false
 validityInterval='P14D'
