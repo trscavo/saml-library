@@ -240,4 +240,4 @@ if [ $status_code -ne 0 ]; then
 fi
 
 /bin/cat $in_file
-clean_up_and_exit -d "$tmp_dir" -I "$final_log_message" 0
+clean_up_and_exit -d "$tmp_dir" -I "$final_log_message" $?

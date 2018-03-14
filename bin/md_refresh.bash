@@ -379,7 +379,7 @@ fi
 
 if ! $requireValidMetadata; then
 	/bin/cat "$md_file"
-	clean_up_and_exit -d "$tmp_dir" -I "$final_log_message" 0
+	clean_up_and_exit -d "$tmp_dir" -I "$final_log_message" $?
 fi
 
 # all further computations utilize the same current time value (for consistency)
@@ -412,7 +412,7 @@ status_code=$?
 # return code 1 indicates a warning message was logged
 if [ $status_code -eq 1 ]; then
 	/bin/cat "$md_file"
-	clean_up_and_exit -d "$tmp_dir" -I "$final_log_message" 0
+	clean_up_and_exit -d "$tmp_dir" -I "$final_log_message" $?
 elif [ $status_code -gt 1 ]; then
 	print_log_message -E "$script_name: check_expiration_warning_interval failed ($status_code)"
 	clean_up_and_exit -d "$tmp_dir" -I "$final_log_message" 3
@@ -421,17 +421,23 @@ fi
 # short-circuit if no freshness interval
 if [ -z "$freshnessInterval" ]; then
 	/bin/cat "$md_file"
-	clean_up_and_exit -d "$tmp_dir" -I "$final_log_message" 0
+	clean_up_and_exit -d "$tmp_dir" -I "$final_log_message" $?
 fi
 
 # check for stale metadata
 echo "$doc_info" | check_freshness_interval -t $currentTime $freshnessInterval $expirationWarningInterval
-status_code=$?
+exit_code=$?
 # return code 1 indicates a warning message was logged
-if [ $status_code -gt 1 ]; then
-	print_log_message -E "$script_name: check_freshness_interval failed ($status_code)"
+if [ $exit_code -gt 1 ]; then
+	print_log_message -E "$script_name: check_freshness_interval failed ($exit_code)"
 	clean_up_and_exit -d "$tmp_dir" -I "$final_log_message" 3
 fi
 
 /bin/cat "$md_file"
-clean_up_and_exit -d "$tmp_dir" -I "$final_log_message" $status_code
+status_code=$?
+if [ $status_code -ne 0 ]; then
+	print_log_message -E "$script_name: cat failed ($status_code)"
+	clean_up_and_exit -d "$tmp_dir" -I "$final_log_message" 3
+fi
+
+clean_up_and_exit -d "$tmp_dir" -I "$final_log_message" $exit_code
