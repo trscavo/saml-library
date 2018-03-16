@@ -22,38 +22,44 @@
 
 display_help () {
 /bin/cat <<- HELP_MSG
-	A SAML metadata filter that ensures the top-level element of 
-	the metadata file is decorated with a @validUntil attribute.
+	This SAML metadata filter writes a copy of the metadata in
+	the pipeline to the given target directory.
 	
 	$usage_string
 	
-	The script takes a SAML metadata file on stdin. It outputs
-	the input file (unchanged) on stdout if the top-level element 
-	of the metadata file is decorated with a @validUntil attribute.
-	The script also checks that the value of the @validUntil 
-	attribute is not too far into the future. The latter is an
-	important security feature.
+	The script takes a SAML metadata file on stdin, writes a copy 
+	of the metadata into the given TARGET_DIR, and then outputs 
+	the input file (unchanged) on stdout.
+	
+	The top-level element of the XML file MUST be an 
+	md:EntityDescriptor element. If not, the script logs an error
+	message and exits with a nonzero exit code.
+	
+	The name of the file written to the TARGET_DIR is computed
+	deterministically by inspecting the metadata. Specifically, 
+	the filename is of the form hash.xml where hash is the SHA-1 
+	hash of the entityID. Thus the filename is unique (insofar 
+	as every SHA-1 hash value has a unique pre-image).
+	
+	For example, suppose the entityID is https://example.com/idp.
+	Then the corresponding filename is 
+	
+	  9f246b6fb6c37ac8ccf8a39f9dd6d8ac5a0fdc9f.xml
+	
+	since
+	
+	  \$ echo -n https://example.com/idp | openssl sha1
+	  9f246b6fb6c37ac8ccf8a39f9dd6d8ac5a0fdc9f
 	
 	Options:
 	   -h      Display this help message
 	   -D      Enable DEBUG logging
 	   -W      Enable WARN logging
-	   -L      Maximum length of the validity interval
 
 	Option -h is mutually exclusive of all other options.
 	
 	Options -D or -W enable DEBUG or WARN logging, respectively.
 	This temporarily overrides the LOG_LEVEL environment variable.
-	
-	The -L option specifies the maximum length of the validity 
-	interval as an ISO 8601 duration. The default value of this 
-	parameter is P14D, that is, two weeks. 
-	
-	The validity interval is the time between the creation and
-	expiration of a metadata document. This script puts a bound
-	on the length of the actual validity interval, which prevents 
-	the metadata publisher from publishing documents having 
-	arbitrary validity intervals, intentionally or otherwise.
 	
 	ENVIRONMENT
 	
@@ -85,13 +91,6 @@ display_help () {
 	
 	$( printf "  %s\n" ${lib_filenames[*]} )
 	
-	EXAMPLES
-	
-	  \$ url=https://md.example.org/some-metadata.xml
-	  \$ curl --remote-name \$url
-	  \$ ${0##*/} some-metadata.xml
-	  \$ cat some-metadata.xml | ./${0##*/}
-	  
 HELP_MSG
 }
 
@@ -158,12 +157,11 @@ done
 #######################################################################
 
 # option -e is experimental and therefore unadvertised
-usage_string="Usage: $script_name [-hDW] [-L DURATION] TARGET_DIR"
+usage_string="Usage: $script_name [-hDW] TARGET_DIR"
 
 help_mode=false; percent_encoding_mode=false
-validityInterval='P14D'
 
-while getopts ":hDWeL:" opt; do
+while getopts ":hDWe" opt; do
 	case $opt in
 		h)
 			help_mode=true
@@ -176,9 +174,6 @@ while getopts ":hDWeL:" opt; do
 			;;
 		e)
 			percent_encoding_mode=true
-			;;
-		L)
-			validityInterval="$OPTARG"
 			;;
 		\?)
 			echo "ERROR: $script_name: Unrecognized option: -$OPTARG" >&2
@@ -214,6 +209,7 @@ fi
 
 # source lib files
 for lib_filename in ${lib_filenames[*]}; do
+	[[ ! $lib_filename =~ \.bash$ ]] && continue
 	lib_file="$LIB_DIR/$lib_filename"
 	source "$lib_file"
 	status_code=$?
@@ -233,11 +229,11 @@ if [ $status_code -ne 0 ]; then
 fi
 
 # read the input into a temporary file
-in_file="${tmp_dir}/saml-metadata-in.xml"
-/bin/cat - > "$in_file"
+xml_file="${tmp_dir}/saml-metadata-in.xml"
+/bin/cat - > "$xml_file"
 status_code=$?
 if [ $status_code -ne 0 ]; then
-	print_log_message -E "$script_name: input failed (status code: ${status_code})"
+	print_log_message -E "$script_name: input failed (${status_code})"
 	clean_up_and_exit -d "$tmp_dir" 2
 fi
 
@@ -246,65 +242,50 @@ initial_log_message="$script_name BEGIN"
 final_log_message="$script_name END"
 
 #####################################################################
+#
 # Main processing
+#
+# 1. parse the metadata
+# 2. ensure the top-level element is an md:EntityDescriptor element
+# 3. compute the desired filename
+# 4. write a copy of the metadata to the target directory
+#
+# Note: Support for md:EntitiesDescriptor is anticipated
+#
 #####################################################################
 
 print_log_message -I "$initial_log_message"
 
 # parse the metadata
-doc_info=$( parse_saml_metadata "$in_file" )
+doc_info=$( parse_saml_metadata "$xml_file" )
 status_code=$?
 if [ $status_code -ne 0 ]; then
 	print_log_message -E "$script_name: parse_saml_metadata failed ($status_code)"
 	clean_up_and_exit -d "$tmp_dir" -I "$final_log_message" 3
 fi
 
-# If the top-level element of the metadata document is an md:EntityDescriptor
-# element, copy the entity descriptor to the target directory with the
-# desired filename. OTOH, if the top-level element of the document is an
-# md:EntitiesDescriptor element, log an error message and exit with an error code.
-if echo "$doc_info" | $_GREP -q '^EntityDescriptor$'; then
-
-	entityID=$( echo "$doc_info" | $_GREP '^entityID' | $_CUT -f2 )
-	if $percent_encoding_mode; then
-		# an experimental feature
-		out_filename=$( percent_encode $entityID )
-	else
-		out_filename=$( echo -n $entityID | /usr/bin/openssl sha1 ).xml
-	fi
-	status_code=$?
-	if [ $status_code -ne 0 ]; then
-		print_log_message -E "$script_name: computation of out_filename failed ($status_code)"
-		clean_up_and_exit -I "$final_log_message" 3
-	fi
-	print_log_message -D "$script_name: out_filename: $out_filename"
-
-	# compute current time
-	currentTime=$( dateTime_now_canonical )
-	status_code=$?
-	if [ $status_code -ne 0 ]; then
-		print_log_message -E "$script_name: dateTime_now_canonical failed ($status_code) to compute currentTime"
-		clean_up_and_exit -I "$final_log_message" 3
-	fi
-	print_log_message -D "$script_name: currentTime: $currentTime"
-
-	# compute validUntil
-	print_log_message -D "$script_name: validityInterval: $validityInterval"
-	validUntil=$( dateTime_delta -b $currentTime "$validityInterval" )
-	status_code=$?
-	if [ $status_code -ne 0 ]; then
-		print_log_message -E "$script_name: dateTime_delta failed ($status_code) to compute validUntil"
-		clean_up_and_exit -I "$final_log_message" 3
-	fi
-	print_log_message -D "$script_name: validUntil: $validUntil"
-	
-	/bin/cat $in_file \
-		| xsltproc --stringparam validUntil $validUntil $LIB_DIR/add_validUntil_attribute.xsl - \
-		| /usr/bin/tee "${target_dir}/$out_filename"
-	exit_status=$?
-else
+# ensure the top-level element is an md:EntityDescriptor element
+if ! echo "$doc_info" | $_GREP -q '^EntityDescriptor$'; then
 	print_log_message -E "$script_name: EntityDescriptor expected"
-	exit_status=1
+	clean_up_and_exit -d "$tmp_dir" -I "$final_log_message" 4
 fi
 
-clean_up_and_exit -d "$tmp_dir" -I "$final_log_message" $exit_status
+# compute the desired filename
+entityID=$( echo "$doc_info" | $_GREP '^entityID' | $_CUT -f2 )
+if $percent_encoding_mode; then
+	# an experimental feature
+	out_filename=$( percent_encode $entityID )
+else
+	out_filename=$( echo -n $entityID | /usr/bin/openssl sha1 ).xml
+fi
+status_code=$?
+if [ $status_code -ne 0 ]; then
+	print_log_message -E "$script_name: computation of out_filename failed ($status_code)"
+	clean_up_and_exit -d "$tmp_dir" -I "$final_log_message" 3
+fi
+out_file="${target_dir}/$out_filename"
+print_log_message -I "$script_name writing file: $out_file"
+
+# write a copy of the metadata to the target directory
+/bin/cat $xml_file | /usr/bin/tee "$out_file"
+clean_up_and_exit -d "$tmp_dir" -I "$final_log_message" $?
