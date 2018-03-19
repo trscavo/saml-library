@@ -16,6 +16,11 @@
 -->
 <!--
 	remove_NameIDFormat.xsl
+	
+	This XSL transform takes a SAML V2.0 metadata document as input.
+	If the top-level element is md:EntityDescriptor, the script 
+	removes all descendant md:NameIDFormat elements from the entity
+	descriptor.
 -->
 <xsl:stylesheet version="1.0"
 	xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
@@ -28,6 +33,6 @@
 		</xsl:copy>
 	</xsl:template>
 
-	<!-- remove the md:NameIDFormat elements from the SPSSODescriptor role -->
-	<xsl:template match="md:EntityDescriptor/md:SPSSODescriptor/md:NameIDFormat"/>
+	<!-- remove all md:NameIDFormat elements from the top-level md:EntityDescriptor element -->
+	<xsl:template match="/md:EntityDescriptor[md:SPSSODescriptor | md:IDPSSODescriptor | md:AttributeAuthorityDescriptor | md:AuthnAuthorityDescriptor | md:PDPDescriptor]//md:NameIDFormat"/>
 </xsl:stylesheet>
