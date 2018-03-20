@@ -147,10 +147,13 @@ done
 # Process command-line options and arguments
 #######################################################################
 
-usage_string="Usage: $script_name [-hDW] TARGET_DIR"
+usage_string="Usage: $script_name [-hDW] [-L DURATION] TARGET_DIR"
 
+# defaults
 help_mode=false
-while getopts ":hDW" opt; do
+expirationWarningInterval='P2D'
+
+while getopts ":hDWL:" opt; do
 	case $opt in
 		h)
 			help_mode=true
@@ -160,6 +163,9 @@ while getopts ":hDW" opt; do
 			;;
 		W)
 			LOG_LEVEL=2  # WARN
+			;;
+		L)
+			expirationWarningInterval="$OPTARG"
 			;;
 		\?)
 			echo "ERROR: $script_name: Unrecognized option: -$OPTARG" >&2
@@ -213,7 +219,8 @@ final_log_message="$script_name END"
 #######################################################################
 # Main processing
 #
-# Given a directory, sweep the directory for expired metadata.
+# Given a directory, sweep the directory for expired and
+# soon-to-be-expired metadata.
 # 
 # for each file in the target directory
 #
@@ -221,9 +228,13 @@ final_log_message="$script_name END"
 #   or the file is not a SAML metadata document
 #   then log a warning and skip the file
 #
-#   if the @validUntil attribute exists
+#   if a @validUntil attribute exists on the top-level element
 #   and its value is less than or equal to the current time
-#   then remove the file
+#   then log a warning and remove the file
+#
+#   if a @validUntil attribute exists on the top-level element
+#   and its value is greater than or equal to the expiration warning threshold
+#   then log a warning
 #
 # end
 #
@@ -235,12 +246,12 @@ print_log_message -I "$initial_log_message"
 currentTime=$( dateTime_now_canonical )
 status_code=$?
 if [ $status_code -ne 0 ]; then
-	print_log_message -E "$script_name: dateTime_now_canonical failed ($status_code) to compute currentTime"
+	print_log_message -E "$script_name: dateTime_now_canonical failed ($status_code)"
 	clean_up_and_exit -I "$final_log_message" 3
 fi
 print_log_message -D "$script_name: currentTime: $currentTime"
 
-print_log_message -I "$script_name: sweeping directory: $target_dir"
+print_log_message -I "$script_name sweeping directory: $target_dir"
 
 # iterate over the files in the target directory
 filenames=$( /bin/ls -1 "$target_dir" )
@@ -252,28 +263,36 @@ for filename in $filenames; do
 		print_log_message -W "$script_name: not a regular file: $md_file"
 		continue
 	fi
-	print_log_message -D "$script_name: checking file: $md_file"
+	print_log_message -I "$script_name checking file: $md_file"
 
 	# parse the metadata
 	doc_info=$( parse_saml_metadata "$md_file" )
 	status_code=$?
-	if [ $status_code -gt 1 ]; then
-		print_log_message -E "$script_name: parse_saml_metadata failed ($status_code)"
-		clean_up_and_exit -I "$final_log_message" 3
-	fi
-	
 	# if status code is 1, the file is not SAML metadata
 	if [ $status_code -eq 1 ]; then
-		print_log_message -W "$script_name: not SAML metadata: $md_file"
+		print_log_message -W "$script_name: not a SAML metadata file: $md_file"
 		continue
+	elif [ $status_code -gt 1 ]; then
+		print_log_message -E "$script_name: parse_saml_metadata failed ($status_code)"
+		clean_up_and_exit -I "$final_log_message" 3
 	fi
 	
 	# check for invalid metadata
 	echo "$doc_info" | require_valid_metadata -t $currentTime
 	status_code=$?
 	if [ $status_code -ne 0 ]; then
-		print_log_message -I "$script_name: removing invalid metadata: $md_file"
+		print_log_message -W "$script_name removing invalid metadata: $md_file"
 		/bin/rm -f "$md_file"
+		continue
+	fi
+	
+	# check for soon-to-be expired metadata
+	echo "$doc_info" | check_expiration_warning_interval -t $currentTime $expirationWarningInterval
+	status_code=$?
+	# return code 1 indicates a warning message was logged
+	if [ $status_code -gt 1 ]; then
+		print_log_message -E "$script_name: check_expiration_warning_interval failed ($status_code)"
+		clean_up_and_exit -d "$tmp_dir" -I "$final_log_message" 3
 	fi
 done
 
