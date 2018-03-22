@@ -22,7 +22,7 @@
 
 display_help () {
 /bin/cat <<- HELP_MSG
-	Compute a Metadata Query protocol request URL.
+	Compute a metadata query protocol request URL.
 	
 	$usage_string
 	
@@ -60,7 +60,6 @@ display_help () {
 	  \$ id=urn:mace:incommon:internet2.edu
 	  \$ url=\$( ${0##*/} \$mdq_base_url \$id )
 	  \$ /usr/bin/curl --silent \$url
-	  
 HELP_MSG
 }
 
@@ -199,8 +198,7 @@ encoded_id=$( percent_encode $identifier )
 status_code=$?
 if [ $status_code -ne 0 ]; then
 	print_log_message -E "$script_name: percent_encode failed ($status_code) to compute encoded_id"
-	print_log_message -I "$final_log_message"
-	exit 3
+	clean_up_and_exit -I "$final_log_message" 3
 fi
 print_log_message -D "$script_name: encoded_id: $encoded_id"
 
@@ -209,10 +207,8 @@ mdq_request_url=$( construct_mdq_url $mdq_base_url $encoded_id )
 status_code=$?
 if [ $status_code -ne 0 ]; then
 	print_log_message -E "$script_name: construct_mdq_url failed ($status_code) to compute mdq_request_url"
-	print_log_message -I "$final_log_message"
-	exit 3
+	clean_up_and_exit -I "$final_log_message" 3
 fi
 
 echo $mdq_request_url
-print_log_message -I "$final_log_message"
-exit 0
+clean_up_and_exit -I "$final_log_message" 0
