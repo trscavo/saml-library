@@ -280,10 +280,14 @@ for filename in $filenames; do
 	# check for invalid metadata
 	echo "$doc_info" | require_valid_metadata -t $currentTime
 	status_code=$?
-	if [ $status_code -ne 0 ]; then
+	# return code 1 indicates invalid metadata
+	if [ $status_code -eq 1 ]; then
 		print_log_message -W "$script_name removing invalid metadata: $md_file"
 		/bin/rm -f "$md_file"
 		continue
+	elif [ $status_code -gt 1 ]; then
+		print_log_message -E "$script_name: require_valid_metadata failed ($status_code)"
+		clean_up_and_exit -d "$tmp_dir" -I "$final_log_message" 3
 	fi
 	
 	# check for soon-to-be expired metadata

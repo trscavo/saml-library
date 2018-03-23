@@ -397,9 +397,13 @@ print_log_message -D "$script_name: currentTime: $currentTime"
 
 echo "$doc_info" | require_valid_metadata -t $currentTime
 status_code=$?
-if [ $status_code -ne 0 ]; then
-	print_log_message -E "$script_name: require_valid_metadata failed ($status_code) to validate metadata"
+# return code 1 indicates invalid metadata
+if [ $status_code -eq 1 ]; then
+	print_log_message -E "$script_name removing invalid metadata from the pipeline"
 	clean_up_and_exit -d "$tmp_dir" -I "$final_log_message" 9
+elif [ $status_code -gt 1 ]; then
+	print_log_message -E "$script_name: require_valid_metadata failed ($status_code)"
+	clean_up_and_exit -d "$tmp_dir" -I "$final_log_message" 3
 fi
 
 #######################################################################
