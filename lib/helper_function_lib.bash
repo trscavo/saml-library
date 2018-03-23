@@ -337,11 +337,12 @@ printf_entity_counts () {
 #  $ parse_saml_metadata MD_FILE \
 #      | require_valid_metadata [-t DATE_TIME]
 #
-# The script logs an error and returns an error code if either of 
+# The script logs a warning and returns error code 1 if either of 
 # the following conditions are true:
 #
 #  - The @validUntil attribute exists in metadata but its
 #    value is in the past.
+#
 #  - The @creationInstant attribute exists in metadata but its
 #    value is in the future.
 #
@@ -375,8 +376,8 @@ require_valid_metadata () {
 	fi
 	
 	# other dependencies
-	if [ "$(type -t dateTime_now_canonical)" != function ]; then
-		print_log_message -E "$FUNCNAME: function dateTime_now_canonical not found"
+	if [ "$(type -t secsBetween)" != function ]; then
+		print_log_message -E "$FUNCNAME: function secsBetween not found"
 		return 2
 	fi
 	
@@ -459,22 +460,24 @@ require_valid_metadata () {
 			# compute sinceExpiration (for logging) but first strip the minus sign
 			sinceExpiration=$( secs2duration "${secsUntilExpiration#-}" )
 			exit_status=$?
-			if [ $exit_status -ne 0 ]; then
+			if [ $exit_status -eq 0 ]; then
+				print_log_message -W "$FUNCNAME: invalid metadata: time since expiration: $sinceExpiration"
+			else
 				print_log_message -E "$FUNCNAME: secs2duration failed ($exit_status) to compute sinceExpiration"
-				return 3
+				print_log_message -W "$FUNCNAME: invalid metadata: seconds since expiration: ${secsUntilExpiration#-}"
 			fi
-			print_log_message -E "$FUNCNAME: time since expiration: $sinceExpiration"
-			return 4
+			return 1
 		fi
 	
 		# compute untilExpiration (for logging)
 		untilExpiration=$( secs2duration "$secsUntilExpiration" )
 		exit_status=$?
-		if [ $exit_status -ne 0 ]; then
+		if [ $exit_status -eq 0 ]; then
+			print_log_message -I "$FUNCNAME: time until expiration: $untilExpiration"
+		else
 			print_log_message -E "$FUNCNAME: secs2duration failed ($exit_status) to compute untilExpiration"
-			return 3
+			print_log_message -I "$FUNCNAME: seconds until expiration: $secsUntilExpiration"
 		fi
-		print_log_message -I "$FUNCNAME: time until expiration: $untilExpiration"
 	fi
 	
 	# if @creationInstant exists, check it
@@ -494,26 +497,29 @@ require_valid_metadata () {
 		print_log_message -D "$FUNCNAME: secsSinceCreation: $secsSinceCreation"
 	
 		# this is a sanity check
+		# if the metadata hasn't yet been created, compute untilCreation (for logging)
 		if [ "$secsSinceCreation" -lt 0 ]; then
 			# compute untilCreation (for logging) but first strip the minus sign
 			untilCreation=$( secs2duration "${secsSinceCreation#-}" )
 			exit_status=$?
-			if [ $exit_status -ne 0 ]; then
+			if [ $exit_status -eq 0 ]; then
+				print_log_message -W "$FUNCNAME: invalid metadata: time until creation: $untilCreation"
+			else
 				print_log_message -E "$FUNCNAME: secs2duration failed ($exit_status) to compute untilCreation"
-				return 3
+				print_log_message -W "$FUNCNAME: invalid metadata: seconds until creation: ${secsSinceCreation#-}"
 			fi
-			print_log_message -E "$FUNCNAME: time until creation: $untilCreation"
-			return 5
+			return 1
 		fi
 	
 		# compute sinceCreation (for logging)
 		sinceCreation=$( secs2duration "$secsSinceCreation" )
 		exit_status=$?
-		if [ $exit_status -ne 0 ]; then
+		if [ $exit_status -eq 0 ]; then
+			print_log_message -I "$FUNCNAME: time since creation: $sinceCreation"
+		else
 			print_log_message -E "$FUNCNAME: secs2duration failed ($exit_status) to compute sinceCreation"
-			return 3
+			print_log_message -I "$FUNCNAME: seconds since creation: $secsSinceCreation"
 		fi
-		print_log_message -I "$FUNCNAME: time since creation: $sinceCreation"
 	fi
 	
 	return 0
