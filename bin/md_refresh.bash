@@ -42,10 +42,6 @@ display_help () {
 	is something else, the script logs an error and returns a nonzero
 	exit code.
 	
-	The script checks for valid metadata. If the metadata is invalid 
-	(see below for details), the script logs an error and returns a 
-	nonzero exit code. No metadata is output in this case.
-	
 	Options:
 	   -h      Display this help message
 	   -D      Enable DEBUG logging
@@ -53,8 +49,6 @@ display_help () {
 	   -F      Enable "Force Refresh Mode"
 	   -C      Enable "Check Cache Mode"
 	   -z      Enable "Compressed Mode"
-	   -L      Length of the Expiration Warning Interval
-	   -M      Length of the Freshness Interval
 
 	Option -h is mutually exclusive of all other options. Options -F 
 	and -C are mutually exclusive of each other.
@@ -78,75 +72,6 @@ display_help () {
 	
 	Important! This implementation treats compressed and uncompressed 
 	requests for the same resource as two distinct cachable resources.
-	
-	METADATA VALIDITY
-	
-	The validity of SAML metadata (not to be confused with signature 
-	verification) depends on two optional XML attributes in the metadata:
-	
-	  1. @validUntil
-	  2. @creationInstant
-
-	The metadata is invalid if either of the following is true:
-
-	  * The @validUntil attribute exists and its value is in the past
-	  * The @creationInstant attribute exists and its value is in the future
-
-	The latter is a sanity check but the former is critical: 
-	If @validUntil is in the past, the metadata is expired. A 
-	conforming implementation MUST reject expired metadata and so
-	expired metadata is effectively the same as no metadata.
-
-	To avoid surprises, an early warning system has been implemented 
-	by defining two time intervals, the Expiration Warning Interval 
-	and the Freshness Interval.
-
-	The right-hand endpoint of the Expiration Warning Interval is the 
-	value of the @validUntil attribute. If the current time is captured 
-	by this interval, a warning message is logged, indicating that the 
-	metadata will soon expire. If no expiration warning occurred, the
-	system also checks the Freshness Interval.
-
-	The left-hand endpoint of the Freshness Interval is the value of 
-	the @creationInstant attribute. If the current time exceeds this 
-	interval, a warning message is logged, indicating that the metadata 
-	is stale.
-	
-	Note that the early warning system issues at most one warning 
-	message. In any case, the metadata is not rejected as it is in the 
-	case of invalid metadata. The metadata is output to stdout even if
-	a warning message is logged.
-	
-	The length of the Expiration Warning Interval is configurable. The 
-	default length is P2D, that is, the script logs a warning message 
-	if the metadata is set to expire in two (2) days or less.
-	
-	(The notation 'P2D' is an ISO 8601 duration. See this article for 
-	details: https://en.wikipedia.org/wiki/ISO_8601#Durations)
-	
-	To change the length of the Expiration Warning Interval, use the 
-	-L option. For example, specify -L PT36H to set the length of the 
-	interval to 36 hours. To turn off this feature, set the length of 
-	the interval to zero (-L PT0S).
-	
-	Similarly, the length of the Freshness Interval is configurable. 
-	However, the length of this interval has no default value. To 
-	check for metadata freshness, use the -M option. For example, if 
-	-M is set to five days (-M P5D) and the metadata is more than 5 
-	days old, a warning message will be logged.
-	
-	For any given metadata source, reasonable values for -L and -M 
-	depend on the actual Validity Interval of the metadata in question. 
-	By definition, the Validity Interval has endpoints @creationInstant 
-	and @validUntil, respectively. In practice, the length of the 
-	Validity Interval will vary from a few days to a few weeks. 
-	
-	The actual Validity Interval may not be known in advance and so the
-	script checks the -L and -M option arguments for reasonableness.
-	If the two subintervals overlap, the script logs a warning message
-	and skips the freshness check (since the result would have been
-	misleading anyway). If this happens, adjust the -L and -M option 
-	arguments to be consistent with the actual Validity Interval.
 	
 	ENVIRONMENT
 	
@@ -234,11 +159,9 @@ fi
 
 # library filenames
 lib_filenames[1]=core_lib.bash
-lib_filenames[2]=compatible_date.bash
-lib_filenames[3]=http_tools.bash
-lib_filenames[4]=http_cache_tools.bash
-lib_filenames[5]=xsl_wrappers.bash
-lib_filenames[6]=helper_function_lib.bash
+lib_filenames[2]=http_tools.bash
+lib_filenames[3]=http_cache_tools.bash
+lib_filenames[4]=xsl_wrappers.bash
 
 # check lib files
 for lib_filename in ${lib_filenames[*]}; do
@@ -253,13 +176,12 @@ done
 # Process command-line options and arguments
 #######################################################################
 
-usage_string="Usage: $script_name [-hDWFCz] [-L DURATION] [-M DURATION] MD_LOCATION"
+usage_string="Usage: $script_name [-hDWFCz] MD_LOCATION"
 
 # defaults
 help_mode=false
-requireValidMetadata=true; expirationWarningInterval='P2D'
 
-while getopts ":hDWFCzL:M:" opt; do
+while getopts ":hDWFCz" opt; do
 	case $opt in
 		h)
 			help_mode=true
@@ -272,12 +194,6 @@ while getopts ":hDWFCzL:M:" opt; do
 			;;
 		[FCz])
 			local_opts="$local_opts -$opt"
-			;;
-		L)
-			expirationWarningInterval="$OPTARG"
-			;;
-		M)
-			freshnessInterval="$OPTARG"
 			;;
 		\?)
 			echo "ERROR: $script_name: Unrecognized option: -$OPTARG" >&2
@@ -367,81 +283,23 @@ fi
 
 doc_info=$( parse_saml_metadata "$md_file" )
 status_code=$?
-if [ $status_code -ne 0 ]; then
+if [ $status_code -eq 1 ]; then
+	print_log_message -E "$script_name: not a SAML metadata document: $md_file"
+	clean_up_and_exit -d "$tmp_dir" -I "$final_log_message" 1
+elif [ $status_code -gt 1 ]; then
 	print_log_message -E "$script_name: parse_saml_metadata failed ($status_code)"
 	clean_up_and_exit -d "$tmp_dir" -I "$final_log_message" 3
 fi
 
 #######################################################################
-# short-circuit if valid metadata is not required
-# (this feature is not configurable; it is reserved for future use)
+# output the valid metadata
 #######################################################################
-
-if ! $requireValidMetadata; then
-	/bin/cat "$md_file"
-	clean_up_and_exit -d "$tmp_dir" -I "$final_log_message" $?
-fi
-
-# all further computations utilize the same current time value (for consistency)
-currentTime=$( dateTime_now_canonical )
-status_code=$?
-if [ $status_code -ne 0 ]; then
-	print_log_message -E "$script_name: dateTime_now_canonical failed ($status_code) to compute currentTime"
-	clean_up_and_exit -d "$tmp_dir" -I "$final_log_message" 3
-fi
-print_log_message -D "$script_name: currentTime: $currentTime"
-
-#######################################################################
-# reject invalid metadata
-#######################################################################
-
-echo "$doc_info" | require_valid_metadata -t $currentTime
-status_code=$?
-# return code 1 indicates invalid metadata
-if [ $status_code -eq 1 ]; then
-	print_log_message -E "$script_name removing invalid metadata from the pipeline"
-	clean_up_and_exit -d "$tmp_dir" -I "$final_log_message" 9
-elif [ $status_code -gt 1 ]; then
-	print_log_message -E "$script_name: require_valid_metadata failed ($status_code)"
-	clean_up_and_exit -d "$tmp_dir" -I "$final_log_message" 3
-fi
-
-#######################################################################
-# at most one warning is logged but the metadata is output in any case
-#######################################################################
-
-# check for soon-to-be expired metadata
-echo "$doc_info" | check_expiration_warning_interval -t $currentTime $expirationWarningInterval
-status_code=$?
-# return code 1 indicates a warning message was logged
-if [ $status_code -eq 1 ]; then
-	/bin/cat "$md_file"
-	clean_up_and_exit -d "$tmp_dir" -I "$final_log_message" $?
-elif [ $status_code -gt 1 ]; then
-	print_log_message -E "$script_name: check_expiration_warning_interval failed ($status_code)"
-	clean_up_and_exit -d "$tmp_dir" -I "$final_log_message" 3
-fi
-
-# short-circuit if no freshness interval
-if [ -z "$freshnessInterval" ]; then
-	/bin/cat "$md_file"
-	clean_up_and_exit -d "$tmp_dir" -I "$final_log_message" $?
-fi
-
-# check for stale metadata
-echo "$doc_info" | check_freshness_interval -t $currentTime $freshnessInterval $expirationWarningInterval
-exit_code=$?
-# return code 1 indicates a warning message was logged
-if [ $exit_code -gt 1 ]; then
-	print_log_message -E "$script_name: check_freshness_interval failed ($exit_code)"
-	clean_up_and_exit -d "$tmp_dir" -I "$final_log_message" 3
-fi
 
 /bin/cat "$md_file"
 status_code=$?
 if [ $status_code -ne 0 ]; then
-	print_log_message -E "$script_name: cat failed ($status_code)"
+	print_log_message -E "$script_name: /bin/cat failed ($status_code)"
 	clean_up_and_exit -d "$tmp_dir" -I "$final_log_message" 3
 fi
 
-clean_up_and_exit -d "$tmp_dir" -I "$final_log_message" $exit_code
+clean_up_and_exit -d "$tmp_dir" -I "$final_log_message" 0
