@@ -1444,3 +1444,239 @@ require_creationInstant () {
 	
 	return 0
 }
+
+#######################################################################
+#
+# This script ensures that the top-level element of the given SAML
+# metadata file is decorated with both a @validUntil attribute and
+# a @creationInstant attribute.
+#
+# This script takes its input from the output of the parse_saml_metadata
+# function:
+#
+#  $ parse_saml_metadata MD_FILE | require_validUntil DURATION
+#
+# The DURATION argument specifies the maximum length of the
+# validity interval as an ISO 8601 duration.
+#
+# The script logs a warning and returns error code 1 if one or
+# more of the following conditions is true:
+#
+#   - The top-level element of the metadata file is not 
+#     decorated with a @validUntil attribute
+#
+#   - The top-level element of the metadata file does not have
+#     an md:Extensions/mdrpi:PublicationInfo child element
+#     (which necessarily has a @creationInstant attribute)
+#
+#   - The actual length of the validity interval is NOT positive
+#
+#   - The actual length of the validity interval is greater than
+#     the maximum length
+#
+# The endpoints of the validity interval are the dateTime values
+# of the @creationInstant attribute and the @validUntil attribute,
+# respectively. If the actual length of the validity interval is
+# NOT positive, or the actual length is greater than the maximum
+# length given on the command line, the script logs a warning
+# message and returns error code 1.
+#
+# This script does not require valid metadata. In particular, if the 
+# value of the @validUntil attribute is in the past, or the value of
+# the @creationInstant attribute is in the future, the script logs a
+# warning but the error code returned by the script is unaffected.
+#
+# Dependencies:
+#   core_lib.bash
+#   compatible_date.bash
+#
+# Used by:
+#   md_require_timestamps.bash
+#
+# See also: https://en.wikipedia.org/wiki/ISO_8601#Durations
+#
+#######################################################################
+require_timestamps () {
+
+	# core_lib dependency
+	if [ "$(type -t print_log_message)" != function ]; then
+		echo "ERROR: $FUNCNAME: function print_log_message not found" >&2
+		exit 2
+	fi
+	
+	# other dependencies
+	if [ "$(type -t duration2secs)" != function ]; then
+		print_log_message -E "$FUNCNAME: function duration2secs not found"
+		return 2
+	fi
+	if [ "$(type -t secsBetween)" != function ]; then
+		print_log_message -E "$FUNCNAME: function secsBetween not found"
+		return 2
+	fi
+	if [ "$(type -t secs2duration)" != function ]; then
+		print_log_message -E "$FUNCNAME: function secs2duration not found"
+		return 2
+	fi
+	
+	local doc_info
+	local creationInstant
+	local creationInstantSecs
+	local validUntil
+	local validUntilSecs
+	local maxValidityInterval
+	local maxValidityIntervalSecs
+	local actualValidityIntervalSecs
+	local actualValidityInterval
+	local currentTime
+	local currentTimeSecs
+	local exit_status
+	
+	# check the number of command-line arguments
+	#shift $(( OPTIND - 1 ))
+	if [ $# -ne 1 ]; then
+		print_log_message -E "$FUNCNAME: incorrect number of arguments: $# (1 required)"
+		return 2
+	fi
+	maxValidityInterval=$1
+
+	###################################################################
+	# Do both @creationInstant and @validUntil exist?
+	###################################################################
+
+	doc_info=$( /bin/cat - | $_GREP -E '^(creationInstant|validUntil)' )
+	
+	# does @creationInstant exist?
+	creationInstant=$( echo "$doc_info" | $_GREP '^creationInstant' | $_CUT -f2 )
+	if [ -z "$creationInstant" ]; then
+		print_log_message -W "$FUNCNAME: creationInstant not found"
+		return 1
+	fi
+	
+	# does @validUntil exist?
+	validUntil=$( echo "$doc_info" | $_GREP '^validUntil' | $_CUT -f2 )
+	if [ -z "$validUntil" ]; then
+		print_log_message -W "$FUNCNAME: validUntil not found"
+		return 1
+	fi
+
+	# both exist
+	print_log_message -I "$FUNCNAME: creationInstant: $creationInstant"
+	print_log_message -I "$FUNCNAME: validUntil: $validUntil"
+		
+	###################################################################
+	# Ensure that the validity interval has the expected length.
+	###################################################################
+
+	# log the max length of the validity interval
+	print_log_message -I "$FUNCNAME: maxValidityInterval: $maxValidityInterval"
+	
+	# convert duration to secs
+	maxValidityIntervalSecs=$( duration2secs "$maxValidityInterval" )
+	exit_status=$?
+	if [ $exit_status -ne 0 ]; then
+		print_log_message -E "$FUNCNAME: duration2secs failed ($exit_status) to compute maxValidityIntervalSecs"
+		return 3
+	fi
+	print_log_message -D "$FUNCNAME: maxValidityIntervalSecs: $maxValidityIntervalSecs"
+
+	# compute the actual length of the validity interval
+	actualValidityIntervalSecs=$( secsBetween $creationInstant $validUntil )
+	exit_status=$?
+	if [ $exit_status -ne 0 ]; then
+		print_log_message -E "$FUNCNAME: secsBetween failed ($exit_status) to compute actualValidityIntervalSecs"
+		return 3
+	fi
+	print_log_message -D "$FUNCNAME: actualValidityIntervalSecs: $actualValidityIntervalSecs"
+
+	# if the metadata is valid, then
+	#   @creationInstant <= NOW < @validUntil
+	# which implies that
+	#   @creationInstant < @validUntil
+	# in other words, the actual length of the validity interval is positive
+	#
+	# since this script does not require valid metadata,
+	# we must ensure the following condition is true:
+	if [ "$actualValidityIntervalSecs" -le 0 ]; then
+		print_log_message -W "$FUNCNAME: the actual length of the validity interval is NOT positive: $actualValidityIntervalSecs"
+		return 1
+	fi
+	
+	# convert secs to duration (for logging)
+	actualValidityInterval=$( secs2duration "$actualValidityIntervalSecs" )
+	exit_status=$?
+	if [ $exit_status -ne 0 ]; then
+		print_log_message -E "$FUNCNAME: secs2duration failed ($exit_status) to compute actualValidityInterval"
+		return 3
+	fi
+
+	# log warning if the actual length exceeds the expected length
+	if [ "$actualValidityIntervalSecs" -gt "$maxValidityIntervalSecs" ]; then
+		print_log_message -W "$FUNCNAME: actual validity interval is too large: $actualValidityInterval"
+		return 1
+	fi
+	print_log_message -I "$FUNCNAME: actualValidityInterval: $actualValidityInterval"
+	
+	# from here on out, return error code 0 no matter what happens
+	
+	if [ "$actualValidityIntervalSecs" -lt "$maxValidityIntervalSecs" ]; then
+		print_log_message -W "$FUNCNAME: actual validity interval is unexpected: $actualValidityInterval"
+	fi
+
+	###################################################################
+	# Check that @validUntil is not in the past.
+	###################################################################
+
+	# convert @validUntil to secs past the Epoch
+	validUntilSecs=$( dateTime_canonical2secs $validUntil )
+	exit_status=$?
+	if [ $exit_status -ne 0 ]; then
+		print_log_message -E "$FUNCNAME: dateTime_canonical2secs failed ($exit_status) to compute validUntilSecs"
+		print_log_message -W "$FUNCNAME unable to confirm metadata validity"
+		return 0
+	fi
+	print_log_message -D "$FUNCNAME: validUntilSecs: $validUntilSecs"
+	
+	# compute current dateTime
+	currentTime=$( dateTime_now_canonical )
+	exit_status=$?
+	if [ $exit_status -ne 0 ]; then
+		print_log_message -E "$FUNCNAME: dateTime_now_canonical failed ($exit_status) to compute currentTime"
+		print_log_message -W "$FUNCNAME unable to confirm metadata validity"
+		return 0
+	fi
+	print_log_message -D "$FUNCNAME: currentTime: $currentTime"
+
+	# convert current dateTime to secs
+	currentTimeSecs=$( dateTime_canonical2secs $currentTime )
+	exit_status=$?
+	if [ $exit_status -ne 0 ]; then
+		print_log_message -E "$FUNCNAME: dateTime_canonical2secs failed ($exit_status) to compute currentTimeSecs"
+		print_log_message -W "$FUNCNAME unable to confirm metadata validity"
+		return 0
+	fi
+	print_log_message -D "$FUNCNAME: currentTimeSecs: $currentTimeSecs"
+	
+	if [ "$currentTimeSecs" -ge "$validUntilSecs" ]; then
+		print_log_message -W "$FUNCNAME: @validUntil is in the past"
+	fi
+	
+	###################################################################
+	# Check that @creationInstant is not in the future.
+	###################################################################
+
+	# convert @creationInstant to secs past the Epoch
+	creationInstantSecs=$( dateTime_canonical2secs $creationInstant )
+	exit_status=$?
+	if [ $exit_status -ne 0 ]; then
+		print_log_message -E "$FUNCNAME: dateTime_canonical2secs failed ($exit_status) to compute creationInstantSecs"
+		print_log_message -W "$FUNCNAME unable to confirm metadata validity"
+		return 0
+	fi
+	print_log_message -D "$FUNCNAME: creationInstantSecs: $creationInstantSecs"
+	
+	if [ "$creationInstantSecs" -gt "$currentTimeSecs" ]; then
+		print_log_message -W "$FUNCNAME: @creationInstant is in the future"
+	fi
+	
+	return 0
+}
