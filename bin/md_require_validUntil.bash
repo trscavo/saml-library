@@ -234,10 +234,20 @@ fi
 # check for @validUntil
 echo "$doc_info" | require_validUntil $maxValidityInterval
 status_code=$?
-if [ $status_code -ne 0 ]; then
+# return code 1 indicates @validUntil is missing or too far into the future
+if [ $status_code -eq 1 ]; then
+	print_log_message -E "$script_name removing metadata from the pipeline (@validUntil missing or too far into the future)"
+	clean_up_and_exit -d "$tmp_dir" -I "$final_log_message" 4
+elif [ $status_code -gt 1 ]; then
 	print_log_message -E "$script_name: require_validUntil failed ($status_code)"
 	clean_up_and_exit -d "$tmp_dir" -I "$final_log_message" 3
 fi
 
-/bin/cat $in_file
-clean_up_and_exit -d "$tmp_dir" -I "$final_log_message" $?
+/bin/cat "$in_file"
+status_code=$?
+if [ $status_code -ne 0 ]; then
+	print_log_message -E "$script_name: /bin/cat failed ($status_code)"
+	clean_up_and_exit -d "$tmp_dir" -I "$final_log_message" 3
+fi
+
+clean_up_and_exit -d "$tmp_dir" -I "$final_log_message" 0

@@ -221,10 +221,20 @@ fi
 # check for @creationInstant
 echo "$doc_info" | require_creationInstant
 status_code=$?
-if [ $status_code -ne 0 ]; then
+# return code 1 indicates @creationInstant is missing
+if [ $status_code -eq 1 ]; then
+	print_log_message -E "$script_name removing metadata from the pipeline (@creationInstant missing)"
+	clean_up_and_exit -d "$tmp_dir" -I "$final_log_message" 4
+elif [ $status_code -gt 1 ]; then
 	print_log_message -E "$script_name: require_creationInstant failed ($status_code)"
 	clean_up_and_exit -d "$tmp_dir" -I "$final_log_message" 3
 fi
 
-/bin/cat $in_file
-clean_up_and_exit -d "$tmp_dir" -I "$final_log_message" $?
+/bin/cat "$in_file"
+status_code=$?
+if [ $status_code -ne 0 ]; then
+	print_log_message -E "$script_name: /bin/cat failed ($status_code)"
+	clean_up_and_exit -d "$tmp_dir" -I "$final_log_message" 3
+fi
+
+clean_up_and_exit -d "$tmp_dir" -I "$final_log_message" 0
