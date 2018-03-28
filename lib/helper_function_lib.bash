@@ -1454,7 +1454,7 @@ require_creationInstant () {
 # This script takes its input from the output of the parse_saml_metadata
 # function:
 #
-#  $ parse_saml_metadata MD_FILE | require_timestamps DURATION
+#  $ parse_saml_metadata MD_FILE | require_timestamps [-f LOG_FILE] DURATION
 #
 # The DURATION argument specifies the maximum length of the
 # validity interval as an ISO 8601 duration.
@@ -1493,6 +1493,20 @@ require_creationInstant () {
 #
 # If any of the above conditions are false, a warning message is
 # logged but the error code returned by the script is unaffected.
+#
+# When option -f is specified on the command line, the script
+# appends a line to the given LOG_FILE. Each row of the file
+# consists of the following three tab-delimited fields:
+#
+#   currentTime
+#   creationInstant
+#   validUntil
+#
+# The currentTime field records the time instant this function
+# executes. The other two values (creationInstant and validUntil)
+# are taken directly from the metadata. All three fields contain
+# a timestamp whose value format is the canonical form of an ISO
+# 8601 dateTime string.
 #
 # Dependencies:
 #   core_lib.bash
@@ -1653,6 +1667,7 @@ require_timestamps () {
 	
 	# from here on out, return error code 0 no matter what happens
 	
+	# log warning if the actual length differs from the expected length
 	if [ "$actualValidityIntervalSecs" -lt "$maxValidityIntervalSecs" ]; then
 		print_log_message -W "$FUNCNAME: actual validity interval is unexpected: $actualValidityInterval"
 	fi
