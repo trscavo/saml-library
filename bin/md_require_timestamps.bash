@@ -45,6 +45,7 @@ display_help () {
 	Options:
 	   -h      Display this help message
 	   -L      Maximum length of the validity interval
+	   -f      Absolute path to timestamp log file
 
 	Option -h is mutually exclusive of all other options.
 	
@@ -57,6 +58,26 @@ display_help () {
 	on the length of the actual validity interval, which prevents 
 	the metadata publisher from publishing documents having 
 	arbitrary validity intervals (or none at all).
+	
+	The -f option gives the absolute path to a timestamp log file.
+	When option -f is specified on the command line, the script 
+	appends a line to the given log file. Each row of the file 
+	consists of the following three tab-delimited fields:
+	
+	  currentTime
+	  creationInstant
+	  validUntil
+	
+	The currentTime field records the time instant this filter
+	executes. The other two values (creationInstant and validUntil)
+	are taken directly from the metadata.
+	
+	All three fields contain a timestamp whose value format is the 
+	canonical form of an ISO 8601 dateTime string:
+	
+	  YYYY-MM-DDThh:mm:ssZ
+	
+	where 'T' and 'Z' are literals.
 	
 	ENVIRONMENT
 	
