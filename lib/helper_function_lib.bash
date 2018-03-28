@@ -1448,43 +1448,51 @@ require_creationInstant () {
 #######################################################################
 #
 # This script ensures that the top-level element of the given SAML
-# metadata file is decorated with both a @validUntil attribute and
-# a @creationInstant attribute.
+# metadata file is associated with both a @creationInstant attribute
+# and a @validUntil attribute.
 #
 # This script takes its input from the output of the parse_saml_metadata
 # function:
 #
-#  $ parse_saml_metadata MD_FILE | require_validUntil DURATION
+#  $ parse_saml_metadata MD_FILE | require_timestamps DURATION
 #
 # The DURATION argument specifies the maximum length of the
 # validity interval as an ISO 8601 duration.
 #
-# The script logs a warning and returns error code 1 if one or
-# more of the following conditions is true:
+# By definition, the endpoints of the validity interval are the
+# dateTime values of the @creationInstant attribute and the
+# @validUntil attribute, respectively. If the actual length of
+# the validity interval is NOT positive, or the actual length is
+# greater than the maximum length given on the command line, the
+# script logs a warning message and returns error code 1.
 #
-#   - The top-level element of the metadata file is not 
-#     decorated with a @validUntil attribute
+# Specifically, the script executes successfully (with error
+# code 0) if all of the following conditions are true:
 #
-#   - The top-level element of the metadata file does not have
-#     an md:Extensions/mdrpi:PublicationInfo child element
+#   - The top-level element of the metadata file is decorated 
+#     with a @validUntil attribute
+#
+#   - The top-level element of the metadata file has an
+#     md:Extensions/mdrpi:PublicationInfo child element
 #     (which necessarily has a @creationInstant attribute)
 #
-#   - The actual length of the validity interval is NOT positive
+#   - The actual length of the validity interval is positive
 #
-#   - The actual length of the validity interval is greater than
+#   - The actual length of the validity interval does not 
+#     exceed the given maximum length
+#
+# Although this script does not require valid metadata, it
+# attempts to check each of the following: 
+#
+#   - The value of the @validUntil attribute is in the future
+#
+#   - The value of the @creationInstant attribute is in the past
+#
+#   - The actual length of the validity interval is equal to 
 #     the maximum length
 #
-# The endpoints of the validity interval are the dateTime values
-# of the @creationInstant attribute and the @validUntil attribute,
-# respectively. If the actual length of the validity interval is
-# NOT positive, or the actual length is greater than the maximum
-# length given on the command line, the script logs a warning
-# message and returns error code 1.
-#
-# This script does not require valid metadata. In particular, if the 
-# value of the @validUntil attribute is in the past, or the value of
-# the @creationInstant attribute is in the future, the script logs a
-# warning but the error code returned by the script is unaffected.
+# If any of the above conditions are false, a warning message is
+# logged but the error code returned by the script is unaffected.
 #
 # Dependencies:
 #   core_lib.bash
