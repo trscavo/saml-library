@@ -23,17 +23,24 @@
 display_help () {
 /bin/cat <<- HELP_MSG
 	This SAML metadata filter ensures that the top-level element of 
-	the metadata file is decorated with both a @creationInstant
+	the metadata file is associated with both a @creationInstant
 	attribute and a @validUntil attribute.
 	
 	$usage_string
 	
 	The script takes a SAML metadata file on stdin. It outputs the 
 	input file (unchanged) on stdout if the top-level element of 
-	the metadata file is decorated with the required attributes.
+	the metadata file is associated with the required attributes.
 	The script also checks that the actual length of the validity 
-	interval is not greater than the maximum length. The latter is 
-	an important security feature.
+	interval does not exceed the maximum length given on the command
+	line. If it does, the metadata is not output and an error message
+	is logged.
+	
+	The latter is an
+	important security feature.
+	
+	This filter rejects metadata that never expires or has too long a validity period, both of which undermine the usual trust model
+	expiring metadata is how trust revocation is enforced
 	
 	Options:
 	   -h      Display this help message
@@ -49,7 +56,7 @@ display_help () {
 	expiration of a metadata document. This script puts a bound
 	on the length of the actual validity interval, which prevents 
 	the metadata publisher from publishing documents having 
-	arbitrary validity intervals.
+	arbitrary validity intervals (or none at all).
 	
 	ENVIRONMENT
 	
@@ -228,10 +235,10 @@ fi
 # check for @creationInstant and @validUntil timestamps
 echo "$doc_info" | require_timestamps $maxValidityInterval
 status_code=$?
-# return code 1 indicates at least one of @creationInstant or @validUntil is missing,
-# or the actual length of the validity interval is greater than the maximum length
+# return code 1 indicates either @creationInstant or @validUntil (or both) is missing,
+# or the actual length of the validity interval exceeds the maximum length
 if [ $status_code -eq 1 ]; then
-	print_log_message -E "$script_name removing metadata from the pipeline (@creationInstant or @validUntil missing)"
+	print_log_message -E "$script_name removing metadata from the pipeline (one or more timestamps missing)"
 	clean_up_and_exit -d "$tmp_dir" -I "$final_log_message" 4
 elif [ $status_code -gt 1 ]; then
 	print_log_message -E "$script_name: require_timestamps failed ($status_code)"
