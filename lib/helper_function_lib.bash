@@ -1537,10 +1537,37 @@ require_timestamps () {
 	local actualValidityInterval
 	local currentTime
 	local currentTimeSecs
+	
 	local exit_status
 	
+	local opt
+	local OPTARG
+	local OPTIND
+	
+	while getopts ":f:" opt; do
+		case $opt in
+			f)
+				timestamp_log_file="$OPTARG"
+				;;
+			\?)
+				echo "ERROR: $FUNCNAME: Unrecognized option: -$OPTARG" >&2
+				return 2
+				;;
+			:)
+				echo "ERROR: $FUNCNAME: Option -$OPTARG requires an argument" >&2
+				return 2
+				;;
+		esac
+	done
+		
+	# check the log file
+	if [ -n "$timestamp_log_file" ] && [ ! -f "$timestamp_log_file" ]; then
+		echo "ERROR: $FUNCNAME: file does not exist: $timestamp_log_file" >&2
+		return 2
+	fi
+
 	# check the number of command-line arguments
-	#shift $(( OPTIND - 1 ))
+	shift $(( OPTIND - 1 ))
 	if [ $# -ne 1 ]; then
 		print_log_message -E "$FUNCNAME: incorrect number of arguments: $# (1 required)"
 		return 2
@@ -1686,5 +1713,12 @@ require_timestamps () {
 		print_log_message -W "$FUNCNAME: @creationInstant is in the future"
 	fi
 	
+	###################################################################
+	# Update the timestamp log file (if there is one).
+	###################################################################
+
+	[ -z "$timestamp_log_file" ] && return 0
+	
+	printf "%s\t%s\t%s\n" $currentTime $creationInstant $validUntil  >> "$timestamp_log_file"
 	return 0
 }

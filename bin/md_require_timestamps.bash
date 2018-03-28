@@ -145,17 +145,22 @@ done
 # Process command-line options and arguments
 #######################################################################
 
-usage_string="Usage: $script_name [-h] [-L DURATION]"
+usage_string="Usage: $script_name [-h] [-L DURATION] [-f LOG_FILE]"
 
+# defaults
 help_mode=false; maxValidityInterval=P14D
 
-while getopts ":hL:" opt; do
+while getopts ":hL:f:" opt; do
 	case $opt in
 		h)
 			help_mode=true
 			;;
 		L)
 			maxValidityInterval="$OPTARG"
+			;;
+		f)
+			timestamp_log_file="$OPTARG"
+			local_opts="$local_opts -$opt $OPTARG"
 			;;
 		\?)
 			echo "ERROR: $script_name: Unrecognized option: -$OPTARG" >&2
@@ -171,6 +176,12 @@ done
 if $help_mode; then
 	display_help
 	exit 0
+fi
+
+# check the log file
+if [ -n "$timestamp_log_file" ] && [ ! -f "$timestamp_log_file" ]; then
+	echo "ERROR: $script_name: file does not exist: $timestamp_log_file" >&2
+	exit 2
 fi
 
 # check the number of command-line arguments
@@ -233,10 +244,10 @@ if [ $status_code -ne 0 ]; then
 fi
 
 # check for @creationInstant and @validUntil timestamps
-echo "$doc_info" | require_timestamps $maxValidityInterval
+echo "$doc_info" | require_timestamps $local_opts $maxValidityInterval
 status_code=$?
-# return code 1 indicates either @creationInstant or @validUntil (or both) is missing,
-# or the actual length of the validity interval exceeds the maximum length
+# return code 1 indicates either @creationInstant or @validUntil (or both) are missing,
+# or the actual length of the validity interval exceeds the maximum interval length
 if [ $status_code -eq 1 ]; then
 	print_log_message -E "$script_name removing metadata from the pipeline (one or more timestamps missing)"
 	clean_up_and_exit -d "$tmp_dir" -I "$final_log_message" 4
@@ -251,5 +262,7 @@ if [ $status_code -ne 0 ]; then
 	print_log_message -E "$script_name: /bin/cat failed ($status_code)"
 	clean_up_and_exit -d "$tmp_dir" -I "$final_log_message" 3
 fi
+
+# from here on out, exit 0 no matter what happens
 
 clean_up_and_exit -d "$tmp_dir" -I "$final_log_message" 0
