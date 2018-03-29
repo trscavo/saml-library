@@ -28,56 +28,172 @@ display_help () {
 	
 	$usage_string
 	
-	The script takes a SAML metadata file on stdin. It outputs the 
+	The script inputs a SAML metadata file on stdin. It outputs the 
 	input file (unchanged) on stdout if the top-level element of 
 	the metadata file is associated with the required attributes.
-	The script also checks that the actual length of the validity 
-	interval does not exceed the maximum length given on the command
-	line. If it does, the metadata is not output and an error message
-	is logged.
 	
-	The latter is an
-	important security feature.
+	The script ensures that the actual length of the validity interval 
+	does not exceed the maximum length given on the command line. If 
+	it does, the metadata is not output and an error message is logged.
+	See the -L option below for details.
 	
-	This filter rejects metadata that never expires or has too long a validity period, both of which undermine the usual trust model
-	expiring metadata is how trust revocation is enforced
+	Overall this filter rejects metadata that never expires or has 
+	too long of a validity period, both of which undermine the usual 
+	trust model.
+	
+	The script takes one or two optional command-line arguments.
+	The first argument causes the values of the @creationInstant and 
+	@validUntil attributes to be logged. The second argument causes 
+	a portion of the log file to be output in JSON format. See the 
+	TIMESTAMP LOG FILE section below for more information.
 	
 	Options:
 	   -h      Display this help message
+	   -D      Enable DEBUG logging
+	   -W      Enable WARN logging
 	   -L      Maximum length of the validity interval
-	   -f      Absolute path to timestamp log file
+	   -n      Specify the number of JSON objects to output
 
 	Option -h is mutually exclusive of all other options.
+	Options -D and -W are mutually exclusive of each other.
 	
+	Options -D or -W enable DEBUG or WARN logging, respectively.
+	This temporarily overrides the LOG_LEVEL environment variable,
+	whatever it may be.
+		
 	The -L option specifies the maximum length of the validity 
 	interval as an ISO 8601 duration. The default value of this 
-	parameter is P14D, that is, two weeks. 
+	parameter is P14D, that is, 14 days. The latter is common
+	but certainly not universal. Adjust the option argument
+	accordingly.
 	
 	The validity interval is the time between the creation and
-	expiration of a metadata document. This script puts a bound
-	on the length of the actual validity interval, which prevents 
-	the metadata publisher from publishing documents having 
+	expiration of a metadata document, that is, the length of
+	the time interval having @creationInstant and @validUntil as
+	endpoints, respectively. This script puts a bound on the 
+	length of the actual validity interval, which prevents 
+	the metadata publisher from publishing documents with 
 	arbitrary validity intervals (or none at all).
 	
-	The -f option gives the absolute path to a timestamp log file.
-	When option -f is specified on the command line, the script 
-	appends a line to the given log file. Each row of the file 
-	consists of the following three tab-delimited fields:
+	TIMESTAMP LOG FILE
+	
+	The script takes one or two optional command-line arguments.
+	The first argument is the absolute path to a timestamp log
+	file. If the log file exists, a line is appended to the file
+	when the script runs. 
+	
+	The second argument is the absolute path of an output file. 
+	If present, a portion of the log file is converted to JSON 
+	and written to the output file. If the output file does not 
+	exist, one is created on-the-fly. In any case, the output 
+	file is overwritten every time the script runs.
+	
+	Option -n determines how many lines of the log file are
+	processed. The default value is 10, and so by default, the 
+	last 10 lines of the log file are used to produce a JSON 
+	array of 10 elements. Adjust the option argument to produce
+	an arrays of the desired size.
+	
+	Note that option -n is ignored unless the OUT_FILE argument 
+	is present.
+	
+	The timestamp log file is a flat text file where each row of the
+	text file consists of the following three tab-delimited fields:
 	
 	  currentTime
 	  creationInstant
 	  validUntil
 	
-	The currentTime field records the time instant this filter
-	executes. The other two values (creationInstant and validUntil)
-	are taken directly from the metadata.
-	
-	All three fields contain a timestamp whose value format is the 
+	All three fields contain a timestamp whose value format is the
 	canonical form of an ISO 8601 dateTime string:
 	
 	  YYYY-MM-DDThh:mm:ssZ
 	
 	where 'T' and 'Z' are literals.
+	
+	The currentTime field records the time instant the data were 
+	collected. The latter two values (creationInstant and validUntil)
+	are taken directly from SAML metadata.
+	
+	OUTPUT
+	
+	Here is the simplest example of a JSON array with one element:
+	
+	  [
+	    {
+	      "currentDateTime": "2018-02-03T21:01:20Z"
+	      ,
+	      "friendlyDate": "February 3, 2018"
+	      ,
+	      "creationInstant": "2018-02-03T20:32:53Z"
+	      ,
+	      "validUntil": "2018-02-07T20:32:53Z"
+	      ,
+	      "sinceEpoch": {
+	        "secs": 1517691680,
+	        "hours": 421581.02,
+	        "days": 17565.88
+	      }
+	      ,
+	      "sinceCreation": {
+	        "secs": 1707,
+	        "hours": 0.47,
+	        "days": 0.02
+	      }
+	      ,
+	      "untilExpiration": {
+	        "secs": 343893,
+	        "hours": 95.53,
+	        "days": 3.98
+	      }
+	      ,
+	      "validityInterval": {
+	        "secs": 345600,
+	        "hours": 96.00,
+	        "days": 4.00
+	      }
+	    }
+	  ]
+
+	As you can see, an array element is a complex JSON object 
+	consisting of timestamps and numerous computed values.
+	
+	The value of the currentDateTime field indicates the actual time 
+	instant the script was run. Its value has the canonical form of 
+	an ISO 8601 dateTime string. The friendlyDate is just that, a
+	human-readable date without a time instant.
+	
+	The values of the creationInstant and validUntil fields are taken
+	directly from the metadata. They too have the canonical form of 
+	an ISO 8601 dateTime string (as specified by the SAML Standard). 
+	
+	The sinceEpoch object is directly related to the currentDateTime. 
+	For example, the sinceEpoch.secs field is the number of seconds 
+	past the Epoch. The sinceEpoch.hours and sinceEpoch.days fields 
+	are similarly defined.
+	
+	The sinceCreation object is a function of both creationInstant 
+	and currentDateTime. The sinceCreation.secs field is the number 
+	of seconds since the metadata was created, that is, the number 
+	of seconds between the creationInstant and currentDateTime time
+	instants.
+	
+	The untilExpiration object is computed from the currentDateTime 
+	and validUntil. For instance, untilExpiration.secs is the numnber 
+	of seconds until the metadata expires (relative to the 
+	currentDateTime).
+	
+	The validityInterval object is the only object that does NOT 
+	depend on the currentDateTime. The former is a function of 
+	creationInstant and validUntil only. Note that the values in the
+	validityInterval object are the sum of the values in the
+	sinceCreation and untilExpiration objects.
+	
+	The computed data are sufficient to construct a time-series plot. 
+	The sinceEpoch object is intended to be the independent variable 
+	while the sinceCreation and untilExpiration objects are dependent 
+	variables. Note that the validityInterval puts a bound on the 
+	values of the dependent variables.
 	
 	ENVIRONMENT
 	
@@ -152,6 +268,8 @@ lib_filenames[1]=core_lib.bash
 lib_filenames[2]=compatible_date.bash
 lib_filenames[3]=xsl_wrappers.bash
 lib_filenames[4]=helper_function_lib.bash
+lib_filenames[5]=http_log_tools.bash
+lib_filenames[6]=json_tools.bash
 
 # check lib files
 for lib_filename in ${lib_filenames[*]}; do
@@ -166,22 +284,28 @@ done
 # Process command-line options and arguments
 #######################################################################
 
-usage_string="Usage: $script_name [-h] [-L DURATION] [-f LOG_FILE]"
+usage_string="Usage: $script_name [-hDW] [-L DURATION] [-n NUM_OBJECTS] [LOG_FILE [OUT_FILE]]"
 
 # defaults
 help_mode=false; maxValidityInterval=P14D
+numObjects=10
 
-while getopts ":hL:f:" opt; do
+while getopts ":hDWL:n:" opt; do
 	case $opt in
 		h)
 			help_mode=true
 			;;
+		D)
+			LOG_LEVEL=4  # DEBUG
+			;;
+		W)
+			LOG_LEVEL=2  # WARN
+			;;
 		L)
 			maxValidityInterval="$OPTARG"
 			;;
-		f)
-			timestamp_log_file="$OPTARG"
-			local_opts="$local_opts -$opt $OPTARG"
+		n)
+			numObjects="$OPTARG"
 			;;
 		\?)
 			echo "ERROR: $script_name: Unrecognized option: -$OPTARG" >&2
@@ -199,18 +323,39 @@ if $help_mode; then
 	exit 0
 fi
 
-# check the log file
-if [ -n "$timestamp_log_file" ] && [ ! -f "$timestamp_log_file" ]; then
-	echo "ERROR: $script_name: file does not exist: $timestamp_log_file" >&2
+# check numObjects
+if [ "$numObjects" -lt 1 ]; then
+	echo "ERROR: $script_name: option -n arg must be positive integer: $numObjects" >&2
 	exit 2
 fi
 
-# check the number of command-line arguments
+# check the numnber of command-line arguments
 shift $(( OPTIND - 1 ))
-if [ $# -ne 0 ]; then
-	echo "ERROR: $script_name: incorrect number of arguments: $# (0 required)" >&2
+if [ $# -lt 0 ] || [ $# -gt 2 ]; then
+	echo "ERROR: $script_name: incorrect number of arguments: $# (0, 1, or 2 required)" >&2
 	exit 2
 fi
+
+# check the log file
+if [ $# -gt 0 ]; then
+	timestamp_log_file=$1
+	if [ ! -f "$timestamp_log_file" ]; then
+		echo "ERROR: $script_name: file does not exist: $timestamp_log_file" >&2
+		exit 2
+	fi
+	# set up option to helper function
+	log_file_opt="-f $timestamp_log_file"
+fi
+
+# check the output file
+if [ $# -eq 2 ]; then
+	out_file=$2
+	# sanity check
+	if [ -z "$out_file" ]; then
+		echo "ERROR: $script_name: output file argument is null" >&2
+		exit 2
+	fi
+fi 
 
 #######################################################################
 # Initialization
@@ -265,7 +410,7 @@ if [ $status_code -ne 0 ]; then
 fi
 
 # check for @creationInstant and @validUntil timestamps
-echo "$doc_info" | require_timestamps $local_opts $maxValidityInterval
+echo "$doc_info" | require_timestamps $log_file_opt $maxValidityInterval
 status_code=$?
 # return code 1 indicates either @creationInstant or @validUntil (or both) are missing,
 # or the actual length of the validity interval exceeds the maximum interval length
@@ -286,4 +431,32 @@ fi
 
 # from here on out, exit 0 no matter what happens
 
+#######################################################################
+#
+# Print a tail of the timestamp log file in JSON format
+#
+#######################################################################
+
+[ -z "$out_file" ] && clean_up_and_exit -d "$tmp_dir" -I "$final_log_message" 0
+print_log_message -I "$script_name using log file: $timestamp_log_file"
+
+# compute the desired tail of the timestamp log file
+tmp_log_file="$tmp_dir/timestamp_log_tail.txt"
+/usr/bin/tail -n $numObjects "$timestamp_log_file" > "$tmp_log_file"
+status_code=$?
+if [ $status_code -ne 0 ]; then
+	print_log_message -E "$script_name: /usr/bin/tail failed ($status_code)"
+	print_log_message -W "$script_name: unable to write to output file: $out_file"
+	clean_up_and_exit -d "$tmp_dir" -I "$final_log_message" 0
+fi
+
+print_log_message -I "$script_name writing to output file: $out_file"
+
+# print JSON to the output file
+print_json_array "$tmp_log_file" append_timestamp_object > "$out_file"
+status_code=$?
+if [ $status_code -ne 0 ]; then
+	print_log_message -E "$script_name: print_json_array failed ($status_code)"
+	print_log_message -W "$script_name: unable to write to output file: $out_file"
+fi
 clean_up_and_exit -d "$tmp_dir" -I "$final_log_message" 0
