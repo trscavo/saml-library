@@ -1504,9 +1504,9 @@ require_creationInstant () {
 #
 # The currentTime field records the time instant this function
 # executes. The other two values (creationInstant and validUntil)
-# are taken directly from the metadata. All three fields contain
-# a timestamp whose value format is the canonical form of an ISO
-# 8601 dateTime string.
+# are taken directly from the metadata. All three fields consist
+# of a timestamp whose value format is the canonical form of an
+# ISO 8601 dateTime string.
 #
 # Dependencies:
 #   core_lib.bash
