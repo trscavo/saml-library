@@ -35,7 +35,7 @@ display_help () {
 	The script ensures that the actual length of the validity interval 
 	does not exceed the maximum length given on the command line. If 
 	it does, the metadata is not output and an error message is logged.
-	See the -L option below for details.
+	See the -M option below for details.
 	
 	Overall this filter rejects metadata that never expires or has 
 	too long of a validity period, both of which undermine the usual 
@@ -51,7 +51,7 @@ display_help () {
 	   -h      Display this help message
 	   -D      Enable DEBUG logging
 	   -W      Enable WARN logging
-	   -L      Maximum length of the validity interval
+	   -M      Maximum length of the validity interval
 	   -n      Specify the number of JSON objects to output
 
 	Option -h is mutually exclusive of all other options.
@@ -61,7 +61,7 @@ display_help () {
 	This temporarily overrides the LOG_LEVEL environment variable,
 	whatever it may be.
 		
-	The -L option specifies the maximum length of the validity 
+	The -M option specifies the maximum length of the validity 
 	interval as an ISO 8601 duration. The default value of this 
 	parameter is P14D, that is, 14 days. The latter is common
 	but certainly not universal. Adjust the option argument
@@ -284,13 +284,13 @@ done
 # Process command-line options and arguments
 #######################################################################
 
-usage_string="Usage: $script_name [-hDW] [-L DURATION] [-n NUM_OBJECTS] [LOG_FILE [OUT_FILE]]"
+usage_string="Usage: $script_name [-hDW] [-M DURATION] [-n NUM_OBJECTS] [LOG_FILE [OUT_FILE]]"
 
 # defaults
 help_mode=false; maxValidityInterval=P14D
 numObjects=10
 
-while getopts ":hDWL:n:" opt; do
+while getopts ":hDWM:n:" opt; do
 	case $opt in
 		h)
 			help_mode=true
@@ -301,7 +301,7 @@ while getopts ":hDWL:n:" opt; do
 		W)
 			LOG_LEVEL=2  # WARN
 			;;
-		L)
+		M)
 			maxValidityInterval="$OPTARG"
 			;;
 		n)

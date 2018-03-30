@@ -36,11 +36,11 @@ display_help () {
 	
 	Options:
 	   -h      Display this help message
-	   -L      Maximum length of the validity interval
+	   -M      Maximum length of the validity interval
 
 	Option -h is mutually exclusive of all other options.
 	
-	The -L option specifies the maximum length of the validity 
+	The -M option specifies the maximum length of the validity 
 	interval as an ISO 8601 duration. The default value of this 
 	parameter is P14D, that is, two weeks. 
 	
@@ -145,16 +145,16 @@ done
 # Process command-line options and arguments
 #######################################################################
 
-usage_string="Usage: $script_name [-h] [-L DURATION]"
+usage_string="Usage: $script_name [-h] [-M DURATION]"
 
 help_mode=false; maxValidityInterval=P14D
 
-while getopts ":hL:" opt; do
+while getopts ":hM:" opt; do
 	case $opt in
 		h)
 			help_mode=true
 			;;
-		L)
+		M)
 			maxValidityInterval="$OPTARG"
 			;;
 		\?)
