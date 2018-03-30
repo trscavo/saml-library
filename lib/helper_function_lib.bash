@@ -1734,6 +1734,7 @@ require_timestamps () {
 
 	[ -z "$timestamp_log_file" ] && return 0
 	
+	print_log_message -I "$FUNCNAME updating timestamp log file: $timestamp_log_file"
 	printf "%s\t%s\t%s\n" $currentTime $creationInstant $validUntil  >> "$timestamp_log_file"
 	return 0
 }
