@@ -36,11 +36,17 @@ display_help () {
 	
 	Options:
 	   -h      Display this help message
-	   -L      Length of the Expiration Warning Interval
-	   -M      Length of the Freshness Interval
+	   -D      Enable DEBUG logging
+	   -W      Enable WARN logging
+	   -E      Length of the Expiration Warning Interval
+	   -F      Length of the Freshness Interval
 
 	Option -h is mutually exclusive of all other options.
 	
+	Options -D or -W enable DEBUG or WARN logging, respectively.
+	This temporarily overrides the LOG_LEVEL environment variable,
+	whatever it may be.
+		
 	METADATA VALIDITY
 	
 	The validity of SAML metadata (not to be confused with signature 
@@ -87,27 +93,27 @@ display_help () {
 	details: https://en.wikipedia.org/wiki/ISO_8601#Durations)
 	
 	To change the length of the Expiration Warning Interval, use the 
-	-L option. For example, specify -L PT36H to set the length of the 
+	-E option. For example, specify -E PT36H to set the length of the 
 	interval to 36 hours. To turn off this feature, set the length of 
-	the interval to zero (-L PT0S).
+	the interval to zero (-E PT0S).
 	
 	Similarly, the length of the Freshness Interval is configurable. 
 	However, the length of this interval has no default value. To 
-	check for metadata freshness, use the -M option. For example, if 
-	-M is set to five days (-M P5D) and the metadata is more than 5 
+	check for metadata freshness, use the -F option. For example, if 
+	-F is set to five days (-F P5D) and the metadata is more than 5 
 	days old, a warning message will be logged.
 	
-	For any given metadata source, reasonable values for -L and -M 
+	For any given metadata source, reasonable values for -E and -F 
 	depend on the actual Validity Interval of the metadata in question. 
 	By definition, the Validity Interval has endpoints @creationInstant 
 	and @validUntil, respectively. In practice, the length of the 
 	Validity Interval will vary from a few days to a few weeks. 
 	
 	The actual Validity Interval may not be known in advance and so the
-	script checks the -L and -M option arguments for reasonableness.
+	script checks the -E and -F option arguments for reasonableness.
 	If the two subintervals overlap, the script logs a warning message
 	and skips the freshness check (since the result would have been
-	misleading anyway). If this happens, adjust the -L and -M option 
+	misleading anyway). If this happens, adjust the -E and -F option 
 	arguments to be consistent with the actual Validity Interval.
 	
 	ENVIRONMENT
@@ -202,21 +208,27 @@ done
 # Process command-line options and arguments
 #######################################################################
 
-usage_string="Usage: $script_name [-h] [-L DURATION] [-M DURATION]"
+usage_string="Usage: $script_name [-hDW] [-E DURATION] [-F DURATION]"
 
 # defaults
 help_mode=false
 expirationWarningInterval=P2D
 
-while getopts ":hL:M:" opt; do
+while getopts ":hDWE:F:" opt; do
 	case $opt in
 		h)
 			help_mode=true
 			;;
-		L)
+		D)
+			LOG_LEVEL=4  # DEBUG
+			;;
+		W)
+			LOG_LEVEL=2  # WARN
+			;;
+		E)
 			expirationWarningInterval="$OPTARG"
 			;;
-		M)
+		F)
 			freshnessInterval="$OPTARG"
 			;;
 		\?)
