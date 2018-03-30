@@ -147,13 +147,13 @@ done
 # Process command-line options and arguments
 #######################################################################
 
-usage_string="Usage: $script_name [-hDW] [-L DURATION] TARGET_DIR"
+usage_string="Usage: $script_name [-hDW] [-E DURATION] TARGET_DIR"
 
 # defaults
 help_mode=false
 expirationWarningInterval='P2D'
 
-while getopts ":hDWL:" opt; do
+while getopts ":hDWE:" opt; do
 	case $opt in
 		h)
 			help_mode=true
@@ -164,7 +164,7 @@ while getopts ":hDWL:" opt; do
 		W)
 			LOG_LEVEL=2  # WARN
 			;;
-		L)
+		E)
 			expirationWarningInterval="$OPTARG"
 			;;
 		\?)
