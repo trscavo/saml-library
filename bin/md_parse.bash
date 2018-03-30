@@ -22,42 +22,21 @@
 
 display_help () {
 /bin/cat <<- HELP_MSG
-	A SAML metadata filter that ensures the top-level element of 
-	the metadata file is decorated with a @validUntil attribute.
+	This script parses a SAML metadata document and prints 
+	the document info.
 	
 	$usage_string
 	
-	The script takes a SAML metadata file on stdin. It outputs
-	the input file (unchanged) on stdout if the top-level element 
-	of the metadata file is decorated with a @validUntil attribute.
-	The script also checks that the value of the @validUntil 
-	attribute is not too far into the future. The latter is an
-	important security feature.
+	The script takes a SAML metadata file on stdin. It parses
+	the document and prints the document info on stdout.
 	
 	Options:
 	   -h      Display this help message
-	   -L      Maximum length of the validity interval
+	   -s      Include detailed security info
 
 	Option -h is mutually exclusive of all other options.
 	
-	The -L option specifies the maximum length of the validity 
-	interval as an ISO 8601 duration. The default value of this 
-	parameter is P14D, that is, two weeks. 
-	
-	The validity interval is the time between the creation and
-	expiration of a metadata document. This script puts a bound
-	on the length of the actual validity interval, which prevents 
-	the metadata publisher from publishing documents having 
-	arbitrary validity intervals.
-	
 	ENVIRONMENT
-	
-	This script leverages a handful of environment variables:
-	
-	  LIB_DIR    A source library directory
-	  TMPDIR     A temporary directory
-	  LOG_FILE   A persistent log file
-	  LOG_LEVEL  The global log level [0..5]
 	
 	The following environment variables are REQUIRED:
 	
@@ -84,7 +63,6 @@ display_help () {
 	
 	  \$ url=https://md.example.org/some-metadata.xml
 	  \$ curl --remote-name \$url
-	  \$ ${0##*/} some-metadata.xml
 	  \$ cat some-metadata.xml | ./${0##*/}
 	  
 HELP_MSG
