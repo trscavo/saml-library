@@ -98,6 +98,8 @@ $script_bin/bin/md_printf.bash
 $script_bin/bin/md_query.bash
 $script_bin/bin/md_refresh.bash
 $script_bin/bin/md_require_creationInstant.bash
+$script_bin/bin/md_require_timestamps.bash
+$script_bin/bin/md_require_valid_metadata.bash
 $script_bin/bin/md_require_validUntil.bash
 $script_bin/bin/md_retain_entities_with_role.bash
 $script_bin/bin/md_sweep.bash
