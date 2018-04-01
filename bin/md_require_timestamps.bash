@@ -415,7 +415,7 @@ status_code=$?
 # return code 1 indicates either @creationInstant or @validUntil (or both) are missing,
 # or the actual length of the validity interval exceeds the maximum interval length
 if [ $status_code -eq 1 ]; then
-	print_log_message -E "$script_name removing metadata from the pipeline (one or more timestamps missing)"
+	print_log_message -E "$script_name removing metadata from the pipeline: one or more timestamps missing, or the actual validity interval exceeds the maximum length: $maxValidityInterval"
 	clean_up_and_exit -d "$tmp_dir" -I "$final_log_message" 4
 elif [ $status_code -gt 1 ]; then
 	print_log_message -E "$script_name: require_timestamps failed ($status_code)"

@@ -1663,13 +1663,14 @@ require_timestamps () {
 		print_log_message -W "$FUNCNAME: actual validity interval is too large: $actualValidityInterval"
 		return 1
 	fi
-	print_log_message -I "$FUNCNAME: actualValidityInterval: $actualValidityInterval"
 	
 	# from here on out, return error code 0 no matter what happens
 	
 	# log warning if the actual length differs from the expected length
 	if [ "$actualValidityIntervalSecs" -lt "$maxValidityIntervalSecs" ]; then
-		print_log_message -W "$FUNCNAME: actual validity interval is unexpected: $actualValidityInterval"
+		print_log_message -W "$FUNCNAME: actual validity interval is too small: $actualValidityInterval"
+	else
+		print_log_message -I "$FUNCNAME: actualValidityInterval: $actualValidityInterval"
 	fi
 
 	###################################################################
