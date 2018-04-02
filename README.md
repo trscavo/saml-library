@@ -6,7 +6,7 @@ Useful scripts for SAML developers
 
 The SAML Library includes the following features:
 
-* implements an HTTP conditional request ([RFC 7232](https://tools.ietf.org/html/rfc7232)) client for [SAML metadata] (https://en.wikipedia.org/wiki/SAML_Metadata)
+* implements an HTTP conditional request ([RFC 7232](https://tools.ietf.org/html/rfc7232)) client for [SAML metadata](https://en.wikipedia.org/wiki/SAML_Metadata)
 * implements various metadata filters that can be used to build a SAML metadata pipeline
 * implements a client for the [Metadata Query Protocol](https://github.com/iay/md-query)
 * implements an HTTP extension to the bash `xsltproc` command-line tool
