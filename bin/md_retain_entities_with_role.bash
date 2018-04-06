@@ -133,7 +133,7 @@ lib_filenames[2]=xsl_wrappers.bash
 
 # check lib files
 for lib_filename in ${lib_filenames[*]}; do
-	lib_file="$LIB_DIR/$lib_filename"
+	lib_file="${LIB_DIR%%/}/$lib_filename"
 	if [ ! -f "$lib_file" ]; then
 		echo "ERROR: $script_name: file does not exist: $lib_file" >&2
 		exit 2
@@ -184,7 +184,8 @@ role_descriptor=$1
 
 # source lib files
 for lib_filename in ${lib_filenames[*]}; do
-	lib_file="$LIB_DIR/$lib_filename"
+	[[ ! $lib_filename =~ \.bash$ ]] && continue
+	lib_file="${LIB_DIR%%/}/$lib_filename"
 	source "$lib_file"
 	status_code=$?
 	if [ $status_code -ne 0 ]; then
