@@ -6,13 +6,39 @@ Useful scripts for SAML developers
 
 The SAML Library includes the following features:
 
-* implements an HTTP conditional request ([RFC 7232](https://tools.ietf.org/html/rfc7232)) client for SAML metadata
-* implements various filters that can be used to build a SAML metadata pipeline
+* implements an HTTP conditional request ([RFC 7232](https://tools.ietf.org/html/rfc7232)) client for [SAML metadata](https://en.wikipedia.org/wiki/SAML_Metadata)
+* implements various metadata filters that can be used to build a SAML metadata pipeline
 * implements a client for the [Metadata Query Protocol](https://github.com/iay/md-query)
-* implements an HTTP extension to the bash xsltproc command-line tool
+* implements an HTTP extension to the bash `xsltproc` command-line tool
 * provides numerous XSLT scripts for SAML metadata
 * provides tools that support the Shibboleth [LocalDynamicMetadataProvider](https://wiki.shibboleth.net/confluence/x/hYGNAQ)
 * monitors the life cycle of a SAML metadata resource
+
+**Metadata sources:**
+
+* `md_refresh.bash`
+* `md_query.bash`
+
+**Metadata sinks:**
+
+* `md_printf.bash`
+* `md_parse.bash`
+
+**Metadata filters:**
+
+* `md_require_valid_metadata.bash`
+* `md_require_timestamps.bash`
+* `md_require_validUntil.bash`
+* `md_require_creationInstant.bash`
+* `md_retain_entities_with_role.bash`
+* `md_tee.bash`
+
+**Other tools:**
+
+* `md_sweep.bash`
+* `md_vital_stats.bash`
+* `mdq_url.bash`
+* `http_xsltproc.bash`
 
 ## Installation
 
