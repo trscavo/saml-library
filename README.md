@@ -20,6 +20,8 @@ For detailed information about one of the tools, consult the tool's online help.
 $ $BIN_DIR/md_refresh.bash -h
 ```
 
+to find out more about the HTTP conditional request client for SAML metadata.
+
 **Metadata sources:**
 
 These scripts usually appear at the beginning of a SAML metadata pipeline:
