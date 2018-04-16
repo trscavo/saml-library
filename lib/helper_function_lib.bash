@@ -595,15 +595,17 @@ check_expiration_warning_interval () {
 		return 2
 	fi
 	
+	local currentTime
 	local expirationWarningInterval
 	local expirationWarningIntervalSecs
 	local expirationWarningThreshold
-	local currentTime
 	local validUntil
-	local secsUntilExpiration
-	local untilExpiration
 	local sinceExpiration
+	local untilExpiration
+	local secsUntilExpiration
+	local log_message
 	local untilFirstWarning
+	local secsUntilFirstWarning
 	local exit_status
 
 	local opt
@@ -646,6 +648,10 @@ check_expiration_warning_interval () {
 	fi
 	print_log_message -D "$FUNCNAME: validUntil: $validUntil"
 	
+	###################################################################
+	# Is @validUntil in the past, that is, is the metadata expired?
+	###################################################################
+
 	# compute current dateTime (if necessary)
 	if [ -z "$currentTime" ]; then
 		currentTime=$( dateTime_now_canonical )
@@ -656,10 +662,6 @@ check_expiration_warning_interval () {
 		fi
 	fi
 	print_log_message -D "$FUNCNAME: currentTime: $currentTime"
-
-	###################################################################
-	# Is @validUntil in the past, that is, is the metadata expired?
-	###################################################################
 
 	# compute secsUntilExpiration (which may be negative)
 	secsUntilExpiration=$( secsBetween $currentTime $validUntil )
@@ -687,10 +689,7 @@ check_expiration_warning_interval () {
 	# Log an expiration warning message?
 	###################################################################
 
-	# log the length of the expiration warning interval
-	print_log_message -I "$FUNCNAME: expirationWarningInterval: $expirationWarningInterval"
-	
-	# convert duration to secs
+	# compute the length of the expiration warning interval (in secs)
 	expirationWarningIntervalSecs=$( duration2secs "$expirationWarningInterval" )
 	exit_status=$?
 	if [ $exit_status -ne 0 ]; then
@@ -698,43 +697,51 @@ check_expiration_warning_interval () {
 		return 3
 	fi
 	
-	# short-circuit if the expiration warning interval length is zero
+	# short-circuit if the length of the expiration warning interval is zero
 	if [ "$expirationWarningIntervalSecs" -eq 0 ]; then
-		print_log_message -I "$FUNCNAME: interval length zero: function short-circuited"
+		print_log_message -I "$FUNCNAME: length of expiration warning interval: 0 ($expirationWarningInterval)"
 		return 0
 	fi
-	print_log_message -D "$FUNCNAME: expirationWarningIntervalSecs: $expirationWarningIntervalSecs"
+	print_log_message -I "$FUNCNAME: length of expiration warning interval: $expirationWarningIntervalSecs ($expirationWarningInterval)"
 
 	# compute expirationWarningThreshold (for logging)
 	expirationWarningThreshold=$( dateTime_delta -e $validUntil "$expirationWarningInterval" )
 	exit_status=$?
-	if [ $exit_status -ne 0 ]; then
-		print_log_message -E "$FUNCNAME: dateTime_delta failed ($exit_status) to compute expirationWarningThreshold"
-	else
+	if [ $exit_status -eq 0 ]; then
 		print_log_message -D "$FUNCNAME: expirationWarningThreshold: $expirationWarningThreshold"
+	else
+		print_log_message -E "$FUNCNAME: dateTime_delta failed ($exit_status) to compute expirationWarningThreshold"
+	fi
+
+	# compute untilExpiration (for logging)
+	untilExpiration=$( secs2duration "$secsUntilExpiration" )
+	exit_status=$?
+	if [ $exit_status -eq 0 ]; then
+		log_message="seconds until expiration: $secsUntilExpiration ($untilExpiration)"
+	else
+		print_log_message -E "$FUNCNAME: secs2duration failed ($exit_status) to compute untilExpiration"
+		log_message="seconds until expiration: $secsUntilExpiration"
 	fi
 
 	# log warning if an expiration event is imminent
 	if [ "$secsUntilExpiration" -le "$expirationWarningIntervalSecs" ]; then
-		# compute untilExpiration (for logging)
-		untilExpiration=$( secs2duration "$secsUntilExpiration" )
-		exit_status=$?
-		if [ $exit_status -ne 0 ]; then
-			print_log_message -E "$FUNCNAME: secs2duration failed ($exit_status) to compute untilExpiration"
-			return 3
-		fi
-		print_log_message -W "$FUNCNAME: expiration warning: time until expiration: $untilExpiration"
+		print_log_message -W "$FUNCNAME: $log_message"
 		return 1
 	fi
+	print_log_message -I "$FUNCNAME: $log_message"
 	
-	# compute untilFirstWarning (for logging)
-	untilFirstWarning=$( secs2duration $(( secsUntilExpiration - expirationWarningIntervalSecs )) )
+	# compute time until first warning (for logging)
+	secsUntilFirstWarning=$(( secsUntilExpiration - expirationWarningIntervalSecs ))
+	untilFirstWarning=$( secs2duration $secsUntilFirstWarning )
 	exit_status=$?
-	if [ $exit_status -ne 0 ]; then
+	if [ $exit_status -eq 0 ]; then
+		print_log_message -I "$FUNCNAME: seconds until first expiration warning: $secsUntilFirstWarning ($untilFirstWarning)"
+	else
 		print_log_message -E "$FUNCNAME: secs2duration failed ($exit_status) to compute untilFirstWarning"
-		return 3
+		print_log_message -I "$FUNCNAME: seconds until first expiration warning: $secsUntilFirstWarning"
 	fi
-	print_log_message -I "$FUNCNAME: time until first expiration warning: $untilFirstWarning"
+	
+	return 0
 }
 
 #######################################################################
@@ -842,6 +849,8 @@ check_freshness_interval () {
 	local untilCreation
 	local freshUntil
 	local sinceCreation
+	local log_message
+	local secsUntilFirstWarning
 	local untilFirstWarning
 	local exit_status
 
@@ -898,6 +907,10 @@ check_freshness_interval () {
 	print_log_message -D "$FUNCNAME: creationInstant: $creationInstant"
 	print_log_message -D "$FUNCNAME: validUntil: $validUntil"
 		
+	###################################################################
+	# Is @creationInstant in the future?
+	###################################################################
+
 	# compute current dateTime (if necessary)
 	if [ -z "$currentTime" ]; then
 		currentTime=$( dateTime_now_canonical )
@@ -909,10 +922,6 @@ check_freshness_interval () {
 	fi
 	print_log_message -D "$FUNCNAME: currentTime: $currentTime"
 
-	###################################################################
-	# Is @creationInstant in the future?
-	###################################################################
-
 	# compute secsSinceCreation (which may be negative)
 	secsSinceCreation=$( secsBetween $creationInstant $currentTime )
 	status_code=$?
@@ -922,7 +931,7 @@ check_freshness_interval () {
 	fi
 	print_log_message -D "$FUNCNAME: secsSinceCreation: $secsSinceCreation"
 
-	# this is a sanity check
+	# this is mostly a sanity check
 	if [ "$secsSinceCreation" -lt 0 ]; then
 		# compute untilCreation (for logging) but first strip the minus sign
 		untilCreation=$( secs2duration "${secsSinceCreation#-}" )
@@ -939,9 +948,6 @@ check_freshness_interval () {
 	# Log a warning message if the subintervals overlap
 	###################################################################
 
-	# log the length of the freshness interval
-	print_log_message -I "$FUNCNAME: freshnessInterval: $freshnessInterval"
-	
 	# compute the length of the freshness interval (in secs)
 	freshnessIntervalSecs=$( duration2secs "$freshnessInterval" )
 	exit_status=$?
@@ -952,11 +958,11 @@ check_freshness_interval () {
 	
 	# short-circuit if the length of the freshness interval is zero
 	if [ "$freshnessIntervalSecs" -eq 0 ]; then
-		print_log_message -I "$FUNCNAME: interval length zero: function short-circuited"
+		print_log_message -I "$FUNCNAME: length of freshness interval: 0 ($freshnessInterval)"
 		return 0
 	fi
-	print_log_message -D "$FUNCNAME: freshnessIntervalSecs: $freshnessIntervalSecs"
-	
+	print_log_message -I "$FUNCNAME: length of freshness interval: $freshnessIntervalSecs ($freshnessInterval)"
+
 	# compute the length of the expiration warning interval (in secs) (which may be zero)
 	expirationWarningIntervalSecs=$( duration2secs "$expirationWarningInterval" )
 	exit_status=$?
@@ -964,7 +970,7 @@ check_freshness_interval () {
 		print_log_message -E "$FUNCNAME: duration2secs failed ($exit_status) to compute expirationWarningIntervalSecs"
 		return 3
 	fi
-	print_log_message -D "$FUNCNAME: expirationWarningIntervalSecs: $expirationWarningIntervalSecs"
+	print_log_message -I "$FUNCNAME: length of expiration warning interval: $expirationWarningIntervalSecs ($expirationWarningInterval)"
 	
 	# compute the actual length of the validity interval (in secs)
 	actualValidityIntervalSecs=$( secsBetween $creationInstant $validUntil )
@@ -973,7 +979,6 @@ check_freshness_interval () {
 		print_log_message -E "$FUNCNAME: secsBetween failed ($exit_status) to compute actualValidityIntervalSecs"
 		return 3
 	fi
-	print_log_message -D "$FUNCNAME: actualValidityIntervalSecs: $actualValidityIntervalSecs"
 	
 	# sanity check
 	if [ "$actualValidityIntervalSecs" -lt 0 ]; then
@@ -986,8 +991,9 @@ check_freshness_interval () {
 	exit_status=$?
 	if [ $exit_status -ne 0 ]; then
 		print_log_message -E "$FUNCNAME: secs2duration failed ($exit_status) to compute actualValidityInterval"
+		print_log_message -I "$FUNCNAME: length of validity interval: $actualValidityIntervalSecs"
 	else
-		print_log_message -I "$FUNCNAME: actualValidityInterval: $actualValidityInterval"
+		print_log_message -I "$FUNCNAME: length of validity interval: $actualValidityIntervalSecs ($actualValidityInterval)"
 	fi
 
 	# log a warning if the subintervals overlap
@@ -1013,27 +1019,35 @@ check_freshness_interval () {
 		print_log_message -D "$FUNCNAME: freshUntil: $freshUntil"
 	fi
 
+	# compute sinceCreation (for logging)
+	sinceCreation=$( secs2duration "$secsSinceCreation" )
+	exit_status=$?
+	if [ $exit_status -eq 0 ]; then
+		log_message="seconds since creation: $secsSinceCreation ($sinceCreation)"
+	else
+		print_log_message -E "$FUNCNAME: secs2duration failed ($exit_status) to compute sinceCreation"
+		log_message="seconds since creation: $secsSinceCreation"
+	fi
+
 	# log warning if beyond the stale warning threshold
 	if [ "$secsSinceCreation" -ge "$freshnessIntervalSecs" ]; then
-		# compute sinceCreation (for logging)
-		sinceCreation=$( secs2duration "$secsSinceCreation" )
-		exit_status=$?
-		if [ $exit_status -ne 0 ]; then
-			print_log_message -E "$FUNCNAME: secs2duration failed ($exit_status) to compute sinceCreation"
-			return 3
-		fi
-		print_log_message -W "$FUNCNAME: stale metadata detected: time since creation: $sinceCreation"
+		print_log_message -W "$FUNCNAME: $log_message"
 		return 1
 	fi
+	print_log_message -I "$FUNCNAME: $log_message"
 	
-	# compute untilFirstWarning (for logging)
-	untilFirstWarning=$( secs2duration $(( freshnessIntervalSecs - secsSinceCreation )) )
+	# compute time until first warning (for logging)
+	secsUntilFirstWarning=$(( freshnessIntervalSecs - secsSinceCreation ))
+	untilFirstWarning=$( secs2duration $secsUntilFirstWarning )
 	exit_status=$?
-	if [ $exit_status -ne 0 ]; then
+	if [ $exit_status -eq 0 ]; then
+		print_log_message -I "$FUNCNAME: seconds until first stale warning: $secsUntilFirstWarning ($untilFirstWarning)"
+	else
 		print_log_message -E "$FUNCNAME: secs2duration failed ($exit_status) to compute untilFirstWarning"
-		return 3
+		print_log_message -I "$FUNCNAME: seconds until first stale warning: $secsUntilFirstWarning"
 	fi
-	print_log_message -I "$FUNCNAME: time until first stale warning: $untilFirstWarning"
+	
+	return 0
 }
 
 #######################################################################
@@ -1345,8 +1359,9 @@ require_validUntil () {
 # following condition is true:
 #
 #   - The top-level element of the metadata file does not have
-#     an md:Extensions/mdrpi:PublicationInfo child element
-#     (which necessarily has a @creationInstant attribute)
+#     an md:Extensions/mdrpi:PublicationInfo child element or
+#     the child element is not decorated with a @creationInstant 
+#     attribute
 #
 # This script does not require valid metadata. In particular, if 
 # the value of the @creationInstant attribute is in the future, 
@@ -1474,7 +1489,8 @@ require_creationInstant () {
 #
 #   - The top-level element of the metadata file has an
 #     md:Extensions/mdrpi:PublicationInfo child element
-#     (which necessarily has a @creationInstant attribute)
+#     and the child element is decorated with a 
+#     @creationInstant attribute
 #
 #   - The actual length of the validity interval is positive
 #
