@@ -4,7 +4,7 @@ Useful scripts for SAML developers
 
 ## Overview
 
-The SAML Library includes the following features:
+This SAML Library includes the following features:
 
 * implements an HTTP conditional request ([RFC 7232](https://tools.ietf.org/html/rfc7232)) client for [SAML metadata](https://en.wikipedia.org/wiki/SAML_Metadata)
 * implements various metadata filters that can be used to build a SAML metadata pipeline
@@ -14,17 +14,31 @@ The SAML Library includes the following features:
 * provides tools that support the Shibboleth [LocalDynamicMetadataProvider](https://wiki.shibboleth.net/confluence/x/hYGNAQ)
 * monitors the life cycle of a SAML metadata resource
 
+For detailed information about one of the tools, consult the tool's online help. For example, type:
+
+```Shell
+$ $BIN_DIR/md_refresh.bash -h
+```
+
+to find out more about the HTTP conditional request client for SAML metadata.
+
 **Metadata sources:**
+
+These scripts usually appear at the beginning of a SAML metadata pipeline:
 
 * `md_refresh.bash`
 * `md_query.bash`
 
 **Metadata sinks:**
 
+These scripts usually appear at the end of a SAML metadata pipeline:
+
 * `md_printf.bash`
 * `md_parse.bash`
 
 **Metadata filters:**
+
+Under normal conditions, SAML metadata flows through these filters, and so these scripts are used to extend a SAML metadata pipeline:
 
 * `md_require_valid_metadata.bash`
 * `md_require_timestamps.bash`
