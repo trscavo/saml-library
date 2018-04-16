@@ -217,6 +217,23 @@ display_help () {
 	in LIB_DIR:
 	
 	$( printf "  %s\n" ${lib_filenames[*]} )
+	
+	EXAMPLES
+	
+	The following command refreshes the metadata at the given 
+	location and ensures metadata validity while requiring both
+	the @creationInstant attribute and the @validUntil attribute:
+	
+	  \$ \$BIN_DIR/md_refresh.bash \$location \\
+	      | \$BIN_DIR/md_require_valid_metadata.bash -E P4D -F P6D \\
+	      | \$BIN_DIR/md_require_timestamps.bash -M P14D
+	
+	The metadata is output on stdout if (and only if) all of the
+	following are true: (1) the metadata is valid, (2) the metadata
+	is decorated with the required attributes, and (3) the actual
+	validity interval is no more than 14 days in length. If the 
+	metadata is set to expire within the next 4 days, or the metadata 
+	is more than 6 days old, a warning message is logged.
 HELP_MSG
 }
 
@@ -396,7 +413,18 @@ initial_log_message="$script_name BEGIN"
 final_log_message="$script_name END"
 
 #####################################################################
+#
 # Main processing
+#
+# 0. Read the input on stdin
+# 1. Parse the metadata
+# 2. Ensure the attributes exist
+# 3. If so, update the timestamp log file and output the metadata on stdout
+# 4. Print a tail of the timestamp log file in JSON format
+#
+# The last step is best effort. It does not affect the
+# success or failure of the script.
+#
 #####################################################################
 
 print_log_message -I "$initial_log_message"
@@ -410,6 +438,7 @@ if [ $status_code -ne 0 ]; then
 fi
 
 # check for @creationInstant and @validUntil timestamps
+# (and update the timestamp log file as a side effect)
 echo "$doc_info" | require_timestamps $log_file_opt $maxValidityInterval
 status_code=$?
 # return code 1 indicates either @creationInstant or @validUntil (or both) are missing,

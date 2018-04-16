@@ -114,7 +114,7 @@
 			<xsl:text>&#x0a;</xsl:text>
 		</xsl:if>
 
-		<!-- the mdrpi:PublicationInfo element is optional -->
+		<!-- the @creationInstant attribute is optional -->
 		<xsl:variable name="creationInstant" select="./md:Extensions/mdrpi:PublicationInfo/@creationInstant"/>
 		<xsl:if test="$creationInstant != ''">
 			<xsl:text>creationInstant</xsl:text>

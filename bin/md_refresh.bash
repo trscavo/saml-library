@@ -254,11 +254,9 @@ md_file="${tmp_dir}/md_resource.xml"
 #######################################################################
 # Main processing
 #
-# 1. Issue a conditional request for the metadata resource
-# 2. Parse the metadata
-# 3. Ensure the metadata is valid
-# 4. Check for soon-to-be expired metadata
-# 5. Check for stale metadata
+# 1. Issue a conditional request for the resource
+# 2. Ensure the resource is a SAML metadata document
+# 3. Output the metadata on stdout
 #
 #######################################################################
 

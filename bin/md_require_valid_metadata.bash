@@ -29,7 +29,7 @@ display_help () {
 	The script takes a SAML metadata file on stdin. It outputs the 
 	input file (unchanged) on stdout if the metadata is valid. If 
 	the metadata is invalid, the script logs an error and returns 
-	a nonzero exit code. No metadata is output if the metadata is
+	a nonzero exit code. There is no output if the metadata is
 	invalid.
 	
 	For details, see the section on Metadata Validity below.
@@ -62,12 +62,19 @@ display_help () {
 
 	The latter is a sanity check but the former is critical: 
 	If @validUntil is in the past, the metadata is expired. A 
-	conforming implementation MUST reject expired metadata and so
-	expired metadata is effectively the same as no metadata.
+	conforming implementation MUST reject expired metadata, that 
+	is, expired metadata is effectively the same as no metadata.
+	
+	The metadata is output on stdout if (and only if) the metadata is
+	valid. If the metadata is valid, the filter continues to check
+	the metadata for anomolies. A warning message is logged if either
+	of the following is true:
 
-	To avoid surprises, an early warning system has been implemented 
-	by defining two time intervals, the Expiration Warning Interval 
-	and the Freshness Interval.
+	  * The metadata is soon-to-be-expired
+	  * The metadata is stale
+
+	This early warning system depends on two time intervals, the 
+	Expiration Warning Interval and the Freshness Interval.
 
 	The right-hand endpoint of the Expiration Warning Interval is the 
 	value of the @validUntil attribute. If the current time is captured 
@@ -109,7 +116,7 @@ display_help () {
 	and @validUntil, respectively. In practice, the length of the 
 	Validity Interval will vary from a few days to a few weeks. 
 	
-	The actual Validity Interval may not be known in advance and so the
+	Since the actual Validity Interval may not be known in advance, the
 	script checks the -E and -F option arguments for reasonableness.
 	If the two subintervals overlap, the script logs a warning message
 	and skips the freshness check (since the result would have been
@@ -141,8 +148,15 @@ display_help () {
 	
 	EXAMPLES
 	
-	  TBD
-	  
+	The following command refreshes the metadata at the given 
+	location and ensures its validity:
+	
+	  \$ \$BIN_DIR/md_refresh.bash \$location \\
+	      | \$BIN_DIR/md_require_valid_metadata.bash -E P3D -F PT36H
+	
+	The metadata is output on stdout if (and only if) it is valid.
+	If the metadata is set to expire within the next three (3) days, or 
+	the metadata is more than 36 hours old, a warning message is logged.
 HELP_MSG
 }
 
@@ -296,6 +310,10 @@ final_log_message="$script_name END"
 # 3. If valid, output the metadata on stdout
 # 4. Check for soon-to-be expired metadata
 # 5. Check for stale metadata
+#
+# The last two steps are best effort. They do not affect the
+# success or failure of the script. Essentially they are for
+# logging purposes only.
 #
 #####################################################################
 

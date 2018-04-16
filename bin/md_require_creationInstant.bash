@@ -30,10 +30,10 @@ display_help () {
 	The script takes a SAML metadata file on stdin. It outputs the 
 	input file (unchanged) on stdout if (and only if) the top-level 
 	element of the metadata file has an 
-	md:Extensions/mdrpi:PublicationInfo child element (which 
-	necessarily has a @creationInstant attribute). The script also 
-	ensures that the value of the @creationInstant attribute on the 
-	child element is in the future.
+	md:Extensions/mdrpi:PublicationInfo child element and that
+	child element is decorated with a @creationInstant attribute. 
+	The script also ensures that the value of the @creationInstant 
+	attribute on the child element is in the future.
 	
 	Options:
 	   -h      Display this help message
