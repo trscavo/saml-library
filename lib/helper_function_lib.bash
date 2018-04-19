@@ -341,7 +341,7 @@ printf_entity_counts () {
 # the following conditions are true:
 #
 #   - The @validUntil attribute exists in metadata but its
-#     value is in the past.
+#     value is NOT in the future.
 #
 #   - The @creationInstant attribute exists in metadata but its
 #     value is in the future.
@@ -359,7 +359,7 @@ printf_entity_counts () {
 #   compatible_date.bash
 #
 # Used by:
-#   md_refresh.bash
+#   md_require_valid_metadata.bash
 #   md_sweep.bash
 #
 # TODO: What if the top-level element is EntitiesDescriptor
@@ -535,33 +535,8 @@ require_valid_metadata () {
 #      | check_expiration_warning_interval [-t DATE_TIME] DURATION
 #
 # The DURATION argument specifies the length of the expiration
-# warning interval as an ISO 8601 duration.
-#
-# The script logs an error and returns an error code >1 if the 
-# following condition is true:
-#
-#  - The @validUntil attribute exists in metadata but its
-#    value is in the past.
-#
-# The script logs a warning and returns error code 1 if
-# the following condition is true:
-#
-#  - The value of the @validUntil attribute is in the future but
-#    the current time exceeds the expiration warning threshold
-#    (which is determined by the length of the expiration warning
-#    interval).
-#
-# By definition, the value of the @validUntil attribute determines
-# the right-hand endpoint of the expiration warning interval. The
-# left-hand endpoint is called the expiration warning threshold,
-# whose value is determined by the interval length given by the
-# DURATION argument on the command line. If the current time
-# exceeds the expiration warning threshold, the script logs a
-# warning message.
-#
-# For example, suppose the length of the expiration warning
-# interval is two days (P2D). In that case, a warning message is
-# logged if the current time is within two days of @validUntil.
+# warning interval as an ISO 8601 duration. For more info, see:
+# https://en.wikipedia.org/wiki/ISO_8601#Durations
 #
 # Options:
 #  -t      ISO 6801 dateTime for the current time (NOW)
@@ -571,17 +546,198 @@ require_valid_metadata () {
 # logged. If no -t option is given on the command line, the script
 # computes the current time on-the-fly and uses that instead.
 #
+# This script is a wrapper around the check_validity_subintervals()
+# function. Consult the inline documentation on the latter function
+# for more info.
+#
 # Dependencies:
 #   core_lib.bash
 #   compatible_date.bash
 #
 # Used by:
-#   md_refresh.bash
-#
-# See also: https://en.wikipedia.org/wiki/ISO_8601#Durations
+#   md_sweep.bash
 #
 #######################################################################
 check_expiration_warning_interval () {
+	
+	# core_lib dependency
+	if [ "$(type -t print_log_message)" != function ]; then
+		echo "ERROR: $FUNCNAME: function print_log_message not found" >&2
+		exit 2
+	fi
+	
+	local local_opt
+	local expirationWarningInterval
+
+	local opt
+	local OPTARG
+	local OPTIND
+	
+	while getopts ":t:" opt; do
+		case $opt in
+			t)
+				local_opt="-$opt $OPTARG"
+				;;
+			\?)
+				print_log_message -E "$FUNCNAME: Unrecognized option: -$OPTARG"
+				return 2
+				;;
+			:)
+				print_log_message -E "$FUNCNAME: Option -$OPTARG requires an argument"
+				return 2
+				;;
+		esac
+	done
+	
+	# check the number of command-line arguments
+	shift $(( OPTIND - 1 ))
+	if [ $# -ne 1 ]; then
+		print_log_message -E "$FUNCNAME: incorrect number of arguments: $# (1 required)"
+		return 2
+	fi
+	expirationWarningInterval=$1
+	
+	check_validity_subintervals $local_opt $expirationWarningInterval
+}
+
+#######################################################################
+#
+# This script checks the subintervals of the validity interval,
+# that is, it checks the expiration warning interval (for soon-to-be
+# expired metadata) and/or the freshness interval (for stale metadata).
+#
+# This script logs an expiration warning message if the metadata is
+# soon-to-be expired. Failing that, if the metadata was created too
+# far in the past, the scripts logs a stale metadata warning instead.
+#
+# This script takes its input from the parse_saml_metadata function:
+#
+#  $ parse_saml_metadata MD_FILE \
+#      | check_validity_subintervals [-t DATE_TIME] DURATION1 [DURATION2]
+#
+# The DURATION1 and DURATION2 arguments specify the lengths of
+# the expiration warning interval and the freshness interval,
+# respectively. Both arguments are given as ISO 8601 durations.
+# See: https://en.wikipedia.org/wiki/ISO_8601#Durations
+#
+# If specified, the length of the freshness interval (DURATION2)
+# must be strictly positive. If the length of the freshness interval
+# is zero, the script logs an error message and returns with an error
+# code >1.
+#
+# The input metadata must be valid (i.e., not expired). Otherwise
+# the script logs an error message and returns with an error code >1.
+#
+# Options:
+#  -t      ISO 6801 dateTime for the current time (NOW)
+#
+# If the caller supplies a dateTime value using the -t option, the
+# script uses that to determine whether a warning message should be
+# logged. If no -t option is given on the command line, the script
+# computes the current time on-the-fly and uses that instead.
+#
+# EXPIRATION WARNING INTERVAL
+#
+# By definition, the right-hand endpoint of the expiration warning
+# interval is the value of the @validUntil attribute in metadata.
+# The left-hand endpoint is called the expiration warning threshold,
+# whose value is determined by the interval length given by the
+# DURATION1 argument on the command line. If the current time
+# exceeds the expiration warning threshold, the script logs a
+# warning message and returns with code 1.
+#
+# For example, suppose the length of the expiration warning
+# interval is two days (P2D). In that case, a warning message is
+# logged if the current time is within two days of @validUntil.
+#
+# FRESHNESS INTERVAL
+#
+# By definition, the left-hand endpoint of the freshness interval
+# is the value of the @creationInstant attribute in metadata.
+# The right-hand endpoint is determined by the interval length,
+# given by DURATION2 argument on the command line. If the current
+# time exceeds the right-hand endpoint of the freshness interval, 
+# the script logs a warning message and returns with code 1.
+#
+# For example, suppose the length of the freshness interval is
+# two days (P2D). In that case, the metadata is stale if the
+# @creationInstant attribute indicates the age of the metadata
+# (which is a function of the current time) is more than two days.
+#
+# VALIDITY INTERVAL
+#
+# By definition, the endpoints of the validity interval are the
+# values of the @creationInstant and @validUntil attributes,
+# respectively. If the sum of the lengths of the freshness
+# interval and the expiration warning interval exceed the actual
+# length of the validity interval, the two subintervals necessarily
+# overlap, in which case the script logs an error message and
+# returns with code >1.
+#
+# For example, suppose the lengths of the freshness interval and
+# the expiration warning interval are five days (P5D) and three
+# days (P3D), respectively. If the script computes the actual
+# validity interval to be one week, the script logs an error
+# message and returns with code >1 since 5 + 3 > 7. In this
+# particular case, more appropriate subinterval lengths might
+# be 3 and 2 (resp.).
+#
+# ALGORITHM
+#
+# The script tests the following conditions in sequence. If a
+# particular condition is false, the script terminates immediately.
+#
+#   1. The top-level element of the metadata is decorated with
+#      a @validUntil attribute (otherwise return normally)
+#
+#   2. The metadata is not expired (otherwise log an error and
+#      return with an error code >1)
+#
+#   3. The time until expiration is greater than the given
+#      expiration warning interval (otherwise log an expiration
+#      warning message and return with code 1)
+#
+#   4. The length of the freshness interval is specified on the
+#      command line (otherwise return normally)
+#
+#   5. The top-level element of the metadata is associated with
+#      a @creationInstant attribute (otherwise return normally)
+#
+#   6. The value of the @creationInstant attribute is not in the
+#      future (otherwise log an error and return with an error 
+#      code >1)
+#
+#   7. The expiration warning interval and the freshness interval
+#      do not overlap (otherwise log an error and return with an 
+#      error code >1)
+#
+#   8. The time since creation is less than the given freshness
+#      interval (otherwise log a stale metadata warning message
+#      and return with code >1)
+#
+# Note that an expiration warning message is logged if both
+# conditions 1 and 2 are true while condition 3 is false.
+# Similarly a stale metadata warning message is logged if
+# conditions 1--7 are true while condition 8 is false.
+#
+# Return codes:
+#   0: Success
+#   1: Warning message logged
+#   2: Initialization failed
+#   3: Unexpected failure
+#   4: Invalid (expired) metadata
+#   5: @creationInstant is in the future
+#   6: Subintervals overlap
+#
+# Dependencies:
+#   core_lib.bash
+#   compatible_date.bash
+#
+# Used by:
+#   md_require_valid_metadata.bash
+#
+#######################################################################
+check_validity_subintervals () {
 
 	# core_lib dependency
 	if [ "$(type -t print_log_message)" != function ]; then
@@ -596,17 +752,31 @@ check_expiration_warning_interval () {
 	fi
 	
 	local currentTime
+	local doc_info
+	local log_message
+	local exit_status
+	
+	local validUntil
 	local expirationWarningInterval
 	local expirationWarningIntervalSecs
 	local expirationWarningThreshold
-	local validUntil
-	local sinceExpiration
 	local untilExpiration
 	local secsUntilExpiration
-	local log_message
+	local sinceExpiration
 	local untilFirstWarning
 	local secsUntilFirstWarning
-	local exit_status
+	
+	local creationInstant
+	local freshnessInterval
+	local freshnessIntervalSecs
+	local sinceCreation
+	local secsSinceCreation
+	local untilCreation
+	local actualValidityIntervalSecs
+	local actualValidityInterval
+	local freshUntil
+	local untilFirstWarning
+	local secsUntilFirstWarning
 
 	local opt
 	local OPTARG
@@ -630,18 +800,48 @@ check_expiration_warning_interval () {
 	
 	# check the number of command-line arguments
 	shift $(( OPTIND - 1 ))
-	if [ $# -ne 1 ]; then
-		print_log_message -E "$FUNCNAME: incorrect number of arguments: $# (1 required)"
+	if [ $# -ne 1 ] && [ $# -ne 2 ]; then
+		print_log_message -E "$FUNCNAME: incorrect number of arguments: $# (1 or 2 required)"
 		return 2
 	fi
 	expirationWarningInterval=$1
+	
+	# compute the length of the expiration warning interval (in secs)
+	expirationWarningIntervalSecs=$( duration2secs "$expirationWarningInterval" )
+	exit_status=$?
+	if [ $exit_status -ne 0 ]; then
+		print_log_message -E "$FUNCNAME: duration2secs failed ($exit_status) to compute expirationWarningIntervalSecs"
+		return 3
+	fi
+	print_log_message -I "$FUNCNAME: length of expiration warning interval: $expirationWarningIntervalSecs ($expirationWarningInterval)"
+	
+	if [ $# -eq 2 ]; then
+		freshnessInterval=$2
+		
+		# compute the length of the freshness interval (in secs)
+		freshnessIntervalSecs=$( duration2secs "$freshnessInterval" )
+		exit_status=$?
+		if [ $exit_status -ne 0 ]; then
+			print_log_message -E "$FUNCNAME: duration2secs failed ($exit_status) to compute freshnessIntervalSecs"
+			return 3
+		fi
+	
+		# log an error if the length of the freshness interval is zero
+		if [ "$freshnessIntervalSecs" -eq 0 ]; then
+			print_log_message -E "$FUNCNAME: length of freshness interval: 0 ($freshnessInterval)"
+			return 2
+		fi
+		print_log_message -I "$FUNCNAME: length of freshness interval: $freshnessIntervalSecs ($freshnessInterval)"
+	fi
 
 	###################################################################
-	# Does @validUntil exist?
+	# Does @validUntil exist? If not, return normally.
 	###################################################################
 
+	doc_info=$( /bin/cat - | $_GREP -E '^(creationInstant|validUntil)' )
+	
 	# return normally if @validUntil does not exist
-	validUntil=$( /bin/cat - | $_GREP '^validUntil' | $_CUT -f2 )
+	validUntil=$( echo "$doc_info" | $_GREP '^validUntil' | $_CUT -f2 )
 	if [ -z "$validUntil" ]; then
 		print_log_message -I "$FUNCNAME: validUntil not found"
 		return 0
@@ -649,7 +849,7 @@ check_expiration_warning_interval () {
 	print_log_message -D "$FUNCNAME: validUntil: $validUntil"
 	
 	###################################################################
-	# Is @validUntil in the past, that is, is the metadata expired?
+	# Is the metadata expired? If so, return abnormally.
 	###################################################################
 
 	# compute current dateTime (if necessary)
@@ -686,23 +886,8 @@ check_expiration_warning_interval () {
 	fi
 
 	###################################################################
-	# Log an expiration warning message?
+	# Log an expiration warning message? If so, return with code 1.
 	###################################################################
-
-	# compute the length of the expiration warning interval (in secs)
-	expirationWarningIntervalSecs=$( duration2secs "$expirationWarningInterval" )
-	exit_status=$?
-	if [ $exit_status -ne 0 ]; then
-		print_log_message -E "$FUNCNAME: duration2secs failed ($exit_status) to compute expirationWarningIntervalSecs"
-		return 3
-	fi
-	
-	# short-circuit if the length of the expiration warning interval is zero
-	if [ "$expirationWarningIntervalSecs" -eq 0 ]; then
-		print_log_message -I "$FUNCNAME: length of expiration warning interval: 0 ($expirationWarningInterval)"
-		return 0
-	fi
-	print_log_message -I "$FUNCNAME: length of expiration warning interval: $expirationWarningIntervalSecs ($expirationWarningInterval)"
 
 	# compute expirationWarningThreshold (for logging)
 	expirationWarningThreshold=$( dateTime_delta -e $validUntil "$expirationWarningInterval" )
@@ -741,10 +926,139 @@ check_expiration_warning_interval () {
 		print_log_message -I "$FUNCNAME: seconds until first expiration warning: $secsUntilFirstWarning"
 	fi
 	
+	###################################################################
+	# Is freshnessInterval null? If so, return normally.
+	###################################################################
+
+	[ -z "$freshnessInterval" ] && return 0
+
+	###################################################################
+	# Does @creationInstant exist? If not, return normally.
+	###################################################################
+
+	# return normally if @creationInstant does not exist
+	creationInstant=$( echo "$doc_info" | $_GREP '^creationInstant' | $_CUT -f2 )
+	if [ -z "$creationInstant" ]; then
+		print_log_message -I "$FUNCNAME: creationInstant not found"
+		return 0
+	fi
+	print_log_message -D "$FUNCNAME: creationInstant: $creationInstant"
+		
+	###################################################################
+	# Is @creationInstant in the future? If so, return abnormally.
+	###################################################################
+
+	# compute secsSinceCreation (which may be negative)
+	secsSinceCreation=$( secsBetween $creationInstant $currentTime )
+	status_code=$?
+	if [ $status_code -ne 0 ]; then
+		print_log_message -E "$FUNCNAME: secsBetween failed ($status_code) to compute secsSinceCreation"
+		return 3
+	fi
+	print_log_message -D "$FUNCNAME: secsSinceCreation: $secsSinceCreation"
+
+	# log an error if @creationInstant is in the future
+	if [ "$secsSinceCreation" -lt 0 ]; then
+		# compute untilCreation (for logging) but first strip the minus sign
+		untilCreation=$( secs2duration "${secsSinceCreation#-}" )
+		exit_status=$?
+		if [ $exit_status -ne 0 ]; then
+			print_log_message -E "$FUNCNAME: secs2duration failed ($exit_status) to compute untilCreation"
+			return 3
+		fi
+		print_log_message -E "$FUNCNAME: time until creation: $untilCreation"
+		return 5
+	fi
+	
+	###################################################################
+	# Do the subintervals overlap? If so, return abnormally.
+	###################################################################
+
+	# compute the actual length of the validity interval (in secs)
+	actualValidityIntervalSecs=$( secsBetween $creationInstant $validUntil )
+	exit_status=$?
+	if [ $exit_status -ne 0 ]; then
+		print_log_message -E "$FUNCNAME: secsBetween failed ($exit_status) to compute actualValidityIntervalSecs"
+		return 3
+	fi
+	
+	# sanity check (if the metadata is valid and @creationInstant is NOT in the future, this is impossible)
+	if [ "$actualValidityIntervalSecs" -lt 0 ]; then
+		print_log_message -E "$FUNCNAME: validity interval has negative length: $actualValidityIntervalSecs"
+		return 3
+	fi
+	
+	# compute actualValidityInterval (for logging)
+	actualValidityInterval=$( secs2duration "$actualValidityIntervalSecs" )
+	exit_status=$?
+	if [ $exit_status -ne 0 ]; then
+		print_log_message -E "$FUNCNAME: secs2duration failed ($exit_status) to compute actualValidityInterval"
+		print_log_message -I "$FUNCNAME: length of validity interval: $actualValidityIntervalSecs"
+	else
+		print_log_message -I "$FUNCNAME: length of validity interval: $actualValidityIntervalSecs ($actualValidityInterval)"
+	fi
+
+	# log an error if the subintervals overlap
+	if (( freshnessIntervalSecs + expirationWarningIntervalSecs > actualValidityIntervalSecs )); then
+		if [ $exit_status -ne 0 ]; then
+			print_log_message -E "$FUNCNAME: subintervals overlap"
+		else
+			print_log_message -E "$FUNCNAME: subintervals overlap: '$freshnessInterval' + '$expirationWarningInterval' > '$actualValidityInterval'"
+		fi
+		return 6
+	fi
+	
+	###################################################################
+	# Log stale metadata warning message? If so, return with code 1.
+	###################################################################
+
+	# compute freshUntil (for logging)
+	freshUntil=$( dateTime_delta -b $creationInstant "$freshnessInterval" )
+	exit_status=$?
+	if [ $exit_status -ne 0 ]; then
+		print_log_message -E "$FUNCNAME: dateTime_delta failed ($exit_status) to compute freshUntil"
+	else
+		print_log_message -D "$FUNCNAME: freshUntil: $freshUntil"
+	fi
+
+	# compute sinceCreation (for logging)
+	sinceCreation=$( secs2duration "$secsSinceCreation" )
+	exit_status=$?
+	if [ $exit_status -eq 0 ]; then
+		log_message="seconds since creation: $secsSinceCreation ($sinceCreation)"
+	else
+		print_log_message -E "$FUNCNAME: secs2duration failed ($exit_status) to compute sinceCreation"
+		log_message="seconds since creation: $secsSinceCreation"
+	fi
+
+	# log warning if beyond the stale warning threshold
+	if [ "$secsSinceCreation" -ge "$freshnessIntervalSecs" ]; then
+		print_log_message -W "$FUNCNAME: $log_message"
+		return 1
+	fi
+	print_log_message -I "$FUNCNAME: $log_message"
+	
+	###################################################################
+	# Return normally.
+	###################################################################
+
+	# compute time until first stale metadata warning (for logging)
+	secsUntilFirstWarning=$(( freshnessIntervalSecs - secsSinceCreation ))
+	untilFirstWarning=$( secs2duration $secsUntilFirstWarning )
+	exit_status=$?
+	if [ $exit_status -eq 0 ]; then
+		print_log_message -I "$FUNCNAME: seconds until first stale metadata warning: $secsUntilFirstWarning ($untilFirstWarning)"
+	else
+		print_log_message -E "$FUNCNAME: secs2duration failed ($exit_status) to compute untilFirstWarning"
+		print_log_message -I "$FUNCNAME: seconds until first stale metadata warning: $secsUntilFirstWarning"
+	fi
+	
 	return 0
 }
 
 #######################################################################
+#
+# This function is DEPRECATED. Use check_validity_subintervals instead.
 #
 # This script checks the freshness interval, which is determined by
 # the @creationInstant attribute in metadata.
@@ -816,7 +1130,7 @@ check_expiration_warning_interval () {
 #   compatible_date.bash
 #
 # Used by:
-#   md_refresh.bash
+#   UNUSED
 #
 # See also: https://en.wikipedia.org/wiki/ISO_8601#Durations
 #
