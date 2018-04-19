@@ -308,11 +308,10 @@ final_log_message="$script_name END"
 # 1. Parse the metadata
 # 2. Ensure the metadata is valid
 # 3. If valid, output the metadata on stdout
-# 4. Check for soon-to-be expired metadata
-# 5. Check for stale metadata
+# 4. Check the subintervals of the validity interval
 #
-# The last two steps are best effort. They do not affect the
-# success or failure of the script. Essentially they are for
+# The last step is best effort. It does not affect the success
+# or failure of this script. Essentially the last step is for
 # logging purposes only.
 #
 #####################################################################
@@ -340,6 +339,10 @@ elif [ $status_code -gt 1 ]; then
 	clean_up_and_exit -d "$tmp_dir" -I "$final_log_message" 3
 fi
 
+#######################################################################
+# reject invalid metadata
+#######################################################################
+
 # all further computations utilize the same current time value (for consistency)
 currentTime=$( dateTime_now_canonical )
 status_code=$?
@@ -348,10 +351,6 @@ if [ $status_code -ne 0 ]; then
 	clean_up_and_exit -d "$tmp_dir" -I "$final_log_message" 3
 fi
 print_log_message -D "$script_name: currentTime: $currentTime"
-
-#######################################################################
-# reject invalid metadata
-#######################################################################
 
 echo "$doc_info" | require_valid_metadata -t $currentTime
 status_code=$?
@@ -378,32 +377,14 @@ fi
 # from here on out, exit with code 0 no matter what happens
 
 #######################################################################
-# check for soon-to-be expired metadata
+# check the subintervals of the validity interval
 #######################################################################
 
-echo "$doc_info" | check_expiration_warning_interval -t $currentTime $expirationWarningInterval
-status_code=$?
-# return code 1 indicates a warning message was logged
-if [ $status_code -eq 1 ]; then
-	# at most one warning should be logged
-	clean_up_and_exit -d "$tmp_dir" -I "$final_log_message" 0
-elif [ $status_code -gt 1 ]; then
-	print_log_message -W "$script_name: check_expiration_warning_interval failed ($status_code)"
-	clean_up_and_exit -d "$tmp_dir" -I "$final_log_message" 0
-fi
-
-#######################################################################
-# check for stale metadata
-#######################################################################
-
-# short-circuit if no freshness interval
-[ -z "$freshnessInterval" ] && clean_up_and_exit -d "$tmp_dir" -I "$final_log_message" 0
-
-echo "$doc_info" | check_freshness_interval -t $currentTime $freshnessInterval $expirationWarningInterval
+echo "$doc_info" | check_validity_subintervals -t $currentTime $expirationWarningInterval $freshnessInterval
 status_code=$?
 # return code 1 indicates a warning message was logged
 if [ $status_code -gt 1 ]; then
-	print_log_message -W "$script_name: check_freshness_interval failed ($status_code)"
+	print_log_message -E "$script_name: check_validity_subintervals failed ($status_code)"
 fi
 
 clean_up_and_exit -d "$tmp_dir" -I "$final_log_message" 0
