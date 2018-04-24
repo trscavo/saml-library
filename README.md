@@ -7,7 +7,7 @@ Useful scripts for SAML developers
 This SAML Library includes the following features:
 
 * implements an HTTP conditional request ([RFC 7232](https://tools.ietf.org/html/rfc7232)) client for [SAML metadata](https://en.wikipedia.org/wiki/SAML_Metadata)
-* implements various metadata filters that can be used to build a SAML metadata pipeline
+* implements various metadata filters that can be used to build SAML metadata pipelines
 * implements a client for the [Metadata Query Protocol](https://github.com/iay/md-query)
 * implements an HTTP extension to the bash `xsltproc` command-line tool
 * provides numerous XSLT scripts for SAML metadata
@@ -22,21 +22,21 @@ $ $BIN_DIR/md_refresh.bash -h
 
 to find out more about the HTTP conditional request client for SAML metadata.
 
-**Metadata sources:**
+**Metadata sources**
 
 These scripts usually appear at the beginning of a SAML metadata pipeline:
 
 * `md_refresh.bash`
 * `md_query.bash`
 
-**Metadata sinks:**
+**Metadata sinks**
 
 These scripts usually appear at the end of a SAML metadata pipeline:
 
 * `md_printf.bash`
 * `md_parse.bash`
 
-**Metadata filters:**
+**Metadata filters**
 
 Under normal conditions, SAML metadata flows through these filters, and so these scripts are used to extend a SAML metadata pipeline:
 
@@ -47,7 +47,7 @@ Under normal conditions, SAML metadata flows through these filters, and so these
 * `md_retain_entities_with_role.bash`
 * `md_tee.bash`
 
-**Other tools:**
+**Other tools**
 
 * `md_sweep.bash`
 * `md_vital_stats.bash`
