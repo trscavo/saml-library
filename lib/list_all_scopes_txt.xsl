@@ -33,7 +33,7 @@
 	  AttributeAuthorityDescriptor
 	
 	and regexp is the value (i.e., true or false) of the shibmd:Scope/@regexp 
-	attribute and scope is the normalized value of the shibmd:Scope element.
+	attribute and scope is a normalized value of the shibmd:Scope element.
 	
 	The content of the shibmd:Scope element is normalized by removing 
 	leading and trailing whitespace. Consecutive spaces are collapsed into 
@@ -51,7 +51,8 @@
 	   | grep '\ttrue\t' \
 	   | cut -f1,3-5
 	
-	Note that a regex scope is dangerous and should be avoided.
+	From the SP's point of view, a regex scope is dangerous and should 
+	be avoided.
 	
 	The following command line lists all invalid literal scope values:
 	
@@ -61,10 +62,11 @@
 	   | sort | uniq \
 	   | grep -Ev '^[[:alnum:]][[:alnum:]\.-]{0,126}\t'
 	
-	Note that a valid scope value may not include embedded whitespace.
+	Simply remove the -v option on the previous grep command to obtain 
+	the list of all valid literal scope values.
 	
-	The following command line lists all valid literal scope values with an
-	upper case letter:
+	The following command line lists all valid literal scope values with 
+	an upper case letter:
 	
 	$ cat /tmp/metadata-scopes.txt \
 	   | grep '\tfalse\t' \
@@ -73,7 +75,8 @@
 	   | grep -E '^[[:alnum:]][[:alnum:]\.-]{0,126}\t' \
 	   | grep -Ev '^[[:digit:][:lower:]][[:digit:][:lower:]\.-]{0,126}\t'
 	
-	Note that two scope values that differ by case only are equivalent.
+	Note that two scope values that differ by case only are equivalent,
+	which may lead to access control errors at the SP.
 	
 	The following command line lists all literal scope values shared by
 	two or more entities:
@@ -88,16 +91,29 @@
 	   | grep -v '^ *1 ' \
 	   | sort
 	
-	It is not illegal for two entities to share a scope but it is suspect.
+	It is legal for two entities to share a scope but every such case
+	increases the risk of impersonation.
 	
-	The following command computes the distribution of the number of scopes
-	per entity:
+	The following command lists the entity (or entities) that contain
+	the given literal scope value:
+	
+	$ scope=example.com
+	$ cat /tmp/metadata-scopes.txt \
+	   | grep '\tfalse\t' \
+	   | cut -f3-5 \
+	   | sort | uniq \
+	   | grep "^$scope\t"
+
+	In the very least, two entities with the same scope should be 
+	registered by the same federation.
+	
+	The following command computes the distribution of the number of 
+	literal scope values per entity (invalid scopes included):
 	
 	$ cat /tmp/metadata-scopes.txt \
 	   | grep '\tfalse\t' \
 	   | cut -f3-5 \
 	   | sort | uniq \
-	   | grep -E '^[[:alnum:]][[:alnum:]\.-]{0,126}\t' \
 	   | cut -f2 \
 	   | sort | uniq -c \
 	   | sed -e 's/^ *//' \
@@ -105,7 +121,7 @@
 	   | sort | uniq -c \
 	   | sort -n -k 2
 	
-	In practice, the number of scopes per entity varies widely.
+	In practice, the number of scope values per entity varies widely.
 	
 	Note: Inside a character class, a period (.) does not need to be escaped,
 	and so technically the backslash (\.) inside some of the above character
