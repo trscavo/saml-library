@@ -56,6 +56,7 @@
 	The following command line lists all invalid literal scope values:
 	
 	$ cat /tmp/metadata-scopes.txt \
+	   | grep '\tfalse\t' \
 	   | cut -f3-5 \
 	   | sort | uniq \
 	   | grep -Ev '^[[:alnum:]][[:alnum:]\.-]{0,126}\t'
@@ -66,6 +67,7 @@
 	upper case letter:
 	
 	$ cat /tmp/metadata-scopes.txt \
+	   | grep '\tfalse\t' \
 	   | cut -f3-5 \
 	   | sort | uniq \
 	   | grep -E '^[[:alnum:]][[:alnum:]\.-]{0,126}\t' \
@@ -77,6 +79,7 @@
 	two or more entities:
 	
 	$ cat /tmp/metadata-scopes.txt \
+	   | grep '\tfalse\t' \
 	   | cut -f3,4 \
 	   | sort | uniq \
 	   | cut -f1 \
@@ -86,6 +89,10 @@
 	   | sort
 	
 	It is not illegal for two entities to share a scope but it is suspect.
+	
+	Note: Inside a character class, a period (.) does not need to be escaped,
+	and so technically the backslash (\.) inside some of the above character
+	classes is superfluous. It is included for readability only.
 -->
 <xsl:stylesheet version="1.0"
 	xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
