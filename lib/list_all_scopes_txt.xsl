@@ -90,6 +90,23 @@
 	
 	It is not illegal for two entities to share a scope but it is suspect.
 	
+	The following command computes the distribution of the number of scopes
+	per entity:
+	
+	$ cat /tmp/metadata-scopes.txt \
+	   | grep '\tfalse\t' \
+	   | cut -f3-5 \
+	   | sort | uniq \
+	   | grep -E '^[[:alnum:]][[:alnum:]\.-]{0,126}\t' \
+	   | cut -f2 \
+	   | sort | uniq -c \
+	   | sed -e 's/^ *//' \
+	   | cut -f1 -d" " \
+	   | sort | uniq -c \
+	   | sort -n -k 2
+	
+	In practice, the number of scopes per entity varies widely.
+	
 	Note: Inside a character class, a period (.) does not need to be escaped,
 	and so technically the backslash (\.) inside some of the above character
 	classes is superfluous. It is included for readability only.
