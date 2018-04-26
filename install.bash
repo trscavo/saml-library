@@ -126,6 +126,7 @@ $script_bin/lib/entity_role_descriptors_txt.xsl
 $script_bin/lib/extract_entity.xsl
 $script_bin/lib/extract_entities_registered_by.xsl
 $script_bin/lib/helper_function_lib.bash
+$script_bin/lib/list_all_entity_attributes_txt.xsl
 $script_bin/lib/list_all_entity_endpoints_txt.xsl
 $script_bin/lib/list_all_IdP_DisplayNames_csv.xsl
 $script_bin/lib/list_all_IdPs_csv.xsl
