@@ -36,8 +36,8 @@
 	there is one line of output for each entity attribute value with
 	the given name.
 	
-	Note: According to the Entity Attributes specification, any given
-	entity descriptor may have at most one mdattr:EntityAttributes
+	Note: According to the Entity Attributes specification, [1] any 
+	given entity descriptor may have at most one mdattr:EntityAttributes
 	element and therefore this script processes the first such element
 	(if any) and simply ignores any redundant mdattr:EntityAttributes 
 	elements.
@@ -50,8 +50,11 @@
 	
 	One can drill down further as desired. For example, the following 
 	command line gives the distribution of all possible entity attribute 
-	values for a particular pair of Name and NameFormat values:
+	values for a particular pair of Name and NameFormat values, namely,
+	the so-called SAML entity category [2]:
 	
+	$ entityAttributeName=http://macedir.org/entity-category
+	$ entityAttributeNameFormat=urn:oasis:names:tc:SAML:2.0:attrname-format:uri
 	$ cat /tmp/entity-attributes.txt \
 	   | grep "^$entityAttributeName\t$entityAttributeNameFormat\t" \
 	   | cut -f3 \
@@ -59,8 +62,10 @@
 	   | sort -nr -k 1
 	
 	Similarly, the following command gives the distribution of a
-	particular entity attribute value across all federations:
+	particular entity attribute value (i.e., the REFEDS Research and
+	Scholarship entity category [3]) across all federations:
 	
+	$ entityAttributeValue=http://refeds.org/category/research-and-scholarship
 	$ cat /tmp/entity-attributes.txt \
 	   | grep "^$entityAttributeName\t$entityAttributeNameFormat\t" \
 	   | grep "\t$entityAttributeValue\t" \
@@ -68,6 +73,10 @@
 	   | sort | uniq -c \
 	   | sort -nr -k 1
 	
+	References:
+	[1] https://wiki.oasis-open.org/security/SAML2MetadataAttr
+	[2] https://datatracker.ietf.org/doc/draft-young-entity-category/
+	[3] http://refeds.org/category/research-and-scholarship
 -->
 <xsl:stylesheet version="1.0"
 	xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
