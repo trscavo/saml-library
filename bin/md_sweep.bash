@@ -223,10 +223,9 @@ final_log_message="$script_name END"
 # Given a directory, sweep the directory for expired and
 # soon-to-be-expired metadata.
 # 
-# for each file in the target directory
+# for each XML file in the target directory
 #
-#   if the file is not a regular file
-#   or the file is not a SAML metadata document
+#   if the file is not a SAML metadata document
 #   then log a warning and skip the file
 #
 #   if a @validUntil attribute exists on the top-level element
@@ -255,23 +254,17 @@ print_log_message -D "$script_name: currentTime: $currentTime"
 print_log_message -I "$script_name sweeping directory: $target_dir"
 
 # iterate over the files in the target directory
-filenames=$( /bin/ls -1 "$target_dir" )
-for filename in $filenames; do
+xml_files=$( /usr/bin/find "$target_dir" -maxdepth 1 -type f -name '*.xml' -print )
+for xml_file in $xml_files; do
 
-	# compute the absolute file path
-	md_file="${target_dir%%/}/$filename"
-	if [ ! -f "$md_file" ]; then
-		print_log_message -W "$script_name: not a regular file: $md_file"
-		continue
-	fi
-	print_log_message -I "$script_name checking file: $md_file"
+	print_log_message -I "$script_name checking file: $xml_file"
 
 	# parse the metadata
-	doc_info=$( parse_saml_metadata "$md_file" )
+	doc_info=$( parse_saml_metadata "$xml_file" )
 	status_code=$?
 	# if status code is 1, the file is not SAML metadata
 	if [ $status_code -eq 1 ]; then
-		print_log_message -W "$script_name: not a SAML metadata file: $md_file"
+		print_log_message -W "$script_name: not a SAML metadata file: $xml_file"
 		continue
 	elif [ $status_code -gt 1 ]; then
 		print_log_message -E "$script_name: parse_saml_metadata failed ($status_code)"
@@ -283,8 +276,8 @@ for filename in $filenames; do
 	status_code=$?
 	# return code 1 indicates invalid metadata
 	if [ $status_code -eq 1 ]; then
-		print_log_message -W "$script_name removing invalid metadata: $md_file"
-		/bin/rm -f "$md_file"
+		print_log_message -W "$script_name removing invalid metadata: $xml_file"
+		/bin/rm -f "$xml_file"
 		continue
 	elif [ $status_code -gt 1 ]; then
 		print_log_message -E "$script_name: require_valid_metadata failed ($status_code)"
