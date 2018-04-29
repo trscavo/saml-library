@@ -32,31 +32,46 @@ display_help () {
 	the directory to be swept clean of expired metadata. Note
 	that this script does not descend into subdirectories or
 	follow symlinks. This script acts on regular files only.
+	If the file does not have an .xml suffix, it is ignored.
 	
-	If a file in the directory is not a SAML metadata documnt,
-	a warning is logged and the file is skipped. OTOH, if the
-	top-level element of the metadata document carries a
-	@validUntil attribute, and the value of the @validUntil
+	If an XML file in the directory is not a SAML metadata 
+	documnt, a warning is logged and the file is skipped. OTOH, 
+	if the top-level element of the metadata document carries 
+	a @validUntil attribute, and the value of the @validUntil
 	attribute indicates the metadata is expired, the file is
-	permanently removed from the directory.
+	permanently removed from the directory. 
 	
 	Options:
 	   -h      Display this help message
 	   -D      Enable DEBUG logging
 	   -W      Enable WARN logging
+	   -E      Length of the Expiration Warning Interval
 
 	Option -h is mutually exclusive of all other options.
 	
 	Options -D or -W enable DEBUG or WARN logging, respectively.
 	This temporarily overrides the LOG_LEVEL environment variable.
 	
+	The -E option specifies the length of the Expiration Warning 
+	Interval as an ISO 8601 duration. The right-hand endpoint of 
+	the Expiration Warning Interval is the value of the @validUntil 
+	attribute in the metadata. If the current time is captured by 
+	this interval, a warning message is logged, indicating that the 
+	metadata will soon expire.
+
+	The default length of the Expiration Warning Interval is P2D, that 
+	is, the script logs a warning message if the metadata is set to 
+	expire in two (2) days or less.
+	
+	(The notation 'P2D' is an ISO 8601 duration. See this article for 
+	details: https://en.wikipedia.org/wiki/ISO_8601#Durations)
+	
+	To change the length of the Expiration Warning Interval, use the 
+	-E option. For example, specify -E PT36H to set the length of the 
+	interval to 36 hours. To turn off this feature, set the length of 
+	the interval to zero (-E PT0S).
+	
 	ENVIRONMENT
-	
-	This script leverages a handful of environment variables:
-	
-	  LIB_DIR    A source library directory
-	  LOG_FILE   A persistent log file
-	  LOG_LEVEL  The global log level [0..5]
 	
 	The following environment variables are REQUIRED:
 	
@@ -253,7 +268,7 @@ print_log_message -D "$script_name: currentTime: $currentTime"
 
 print_log_message -I "$script_name sweeping directory: $target_dir"
 
-# iterate over the files in the target directory
+# iterate over the XML files in the target directory
 xml_files=$( /usr/bin/find "$target_dir" -maxdepth 1 -type f -name '*.xml' -print )
 for xml_file in $xml_files; do
 
